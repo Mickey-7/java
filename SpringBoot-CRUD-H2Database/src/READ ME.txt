@@ -1,0 +1,311 @@
+reference : https://www.javaguides.net/2019/08/spring-boot-crud-rest-api-spring-data-jpa-h2-database-example.html
+
+------------------------------------------------------------------------------------------------------------------------
+
+dependecies : Spring Web, JPA & H2Databse
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+------------------------------------------------------------------------------------------------------------------------
+
+H2 Database : https://howtodoinjava.com/spring-boot2/h2-database-example/
+
+    Learn to configure H2 database with Spring boot to create and use an in-memory database in runtime,
+    generally for unit testing or POC purposes. Remember an in-memory database is created/initialized
+    when an application starts up; and destroyed when the application shuts down.
+
+    ----------------------------------------------------------------------------------------------------------------------
+
+    1. What is H2 Database?
+        H2 is one of the popular in-memory databases written in Java.
+        It can be embedded in Java applications or run in the client-server mode.
+        Spring Boot provides excellent integration support for H2 using simple properties configuration.
+        To make it even more useful, H2 also provides a console view to maintain and interact with the database tables and data.
+
+    ----------------------------------------------------------------------------------------------------------------------
+
+    2. Maven Dependency
+        To use H2 in Spring boot application, all we need to do is adding H2 runtime jar into dependencies. 
+        The best way to add is through maven.
+
+          pom.xml
+          <dependency>
+              <groupId>com.h2database</groupId>
+              <artifactId>h2</artifactId>
+              <scope>runtime</scope>
+          </dependency>
+
+    ----------------------------------------------------------------------------------------------------------------------
+
+    3. H2 Configuration Options
+        3.1. Simple configuration
+              Spring provides very easy configuration options to connect to any database using simple properties. 
+              Below are the configuration properties, we shall have in application.properties file.
+
+                #application.properties
+                spring.datasource.url=jdbc:h2:mem:testdb
+                spring.datasource.driverClassName=org.h2.Driver
+                spring.datasource.username=sa
+                spring.datasource.password=
+                spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+
+              Please note by default, Spring Boot configures the in-memory database connection with the username 'sa' and an empty password ' '. 
+              If you wish to change these values, override them in above properties options.
+
+        3.2. Configure data persistence
+              The in-memory databases are volatile, by default, and all stored data will be lost when we restart the application. 
+              In this case, data is written in temporary memory and as soon as JVM is stopped, data is flushed.
+              To have a persistent data store, which is capable to storing data between application start/stop, 
+              we should store the data in files. For this change the spring.datasource.url property.
+
+                application.properties
+                # temporary data storage
+                spring.datasource.url = jdbc:h2:mem:testdb
+
+                # temporary data storage
+                spring.datasource.url = jdbc:h2:file:/data/sample
+                spring.datasource.url = jdbc:h2:file:C:/data/sample (Windows only)
+                Read More : H2 database connection URLs
+
+    ----------------------------------------------------------------------------------------------------------------------
+
+    4. Create schema and insert data on initialization
+        We may want to initialize database with some fixed schema (DDL) and insert default 
+        data (DML) into tables before the application is ready is run business usecases.
+        We can achieve this by putting sql files into resources folder (/src/main/resources/).
+
+          schema.sql – To initialize the schema ie.create tables and dependencies.
+          data.sql – To insert default data rows.
+          
+            schema.sql
+            DROP TABLE IF EXISTS TBL_EMPLOYEES;
+            CREATE TABLE TBL_EMPLOYEES (
+              id INT AUTO_INCREMENT  PRIMARY KEY,
+              first_name VARCHAR(250) NOT NULL,
+              last_name VARCHAR(250) NOT NULL,
+              email VARCHAR(250) DEFAULT NULL
+            );
+            data.sql
+            INSERT INTO TBL_EMPLOYEES (first_name, last_name, email) VALUES
+              ('Lokesh', 'Gupta', 'abc@gmail.com'),
+              ('Deja', 'Vu', 'xyz@email.com'),
+              ('Caption', 'America', 'cap@marvel.com');
+
+    ----------------------------------------------------------------------------------------------------------------------
+
+    5. H2 Console
+        5.1. Enable H2 console
+              By default, the console view of H2 database is disabled. We must enable it to view and access it in browser. 
+              Note that we can customize the URL of H2 console which, by default, is '/h2'.
+
+                #application.properties
+                # Enabling H2 Console
+                spring.h2.console.enabled=true
+
+                # Custom H2 Console URL
+                spring.h2.console.path=/any_url_name
+
+        5.2. Accessing H2 console
+              Start the spring boot application and access the console in browser with URL : http://localhost:8080/any_url_name.
+
+        5.3. Other configuration options
+              Spring boot provides two more properties to further customize the behavior of H2 console. 
+              i.e. we can enable/disable the database trace logs and we can enable/disable the remote access of H2 console.
+              By default both properties are false.
+
+                application.properties
+                # Whether to enable trace output.
+                spring.h2.console.settings.trace=false
+
+                # Whether to enable remote access.
+                spring.h2.console.settings.web-allow-others=false
+                Use these properties as per requirements at hands.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+domain
+  @Entity
+  @Table(name = "")
+  @Id
+  @GenerationValue(strategy = GenerationType.AUTO)
+  @Column(name = "", nullable = false)
+
+---------------------------------------------------------------------------------------------------------------------------
+
+repository 
+  interface
+  @Repository
+  extends JpaRepository<Class_Name, Long>
+
+---------------------------------------------------------------------------------------------------------------------------
+
+advice
+  ResourceNotFound class
+    @ResponseStatus(value = HttpStatus.NOT_FOUND)
+    extends Exception
+    alt + insert -> override methods
+    choose Exception(message : String)
+
+  ErrorDetails class
+    private Date timestamp;
+    private String message;
+    private String details;
+    blank constructor, constructor,setters & getters
+
+    To use ErrorDetails to return the error response, let’s create a
+    GlobalExceptionHandler class annotated with @ControllerAdvice annotation. 
+    This class handles exception specific and global exception in a single place.
+
+  GlobalExceptionHandler class
+    @ControllerAdvice
+    @ExceptionHandler(Exception_Class_Name.class) -> Exception_Class_Name must extends Exception : specific exception
+    @ExceptionHandler(Exception.class) -> global exception
+
+---------------------------------------------------------------------------------------------------------------------------
+
+controller
+  @RestController
+  @RequestMapping("")
+  @Autowired
+  @PostMapping
+    @RequestBody Employee employee
+  @DeleteMapping("/employees/{id}")
+  @GetMapping("/employees/{id}")
+    @PathVariable Long id
+  @PutMapping("/employees/{id}")
+    @PathVariable Long id, @RequestBody Employee employee
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Postman 
+  POST localhost:8080/api   SEND
+    {
+      "id":1,
+      "firstName":"firstName1",
+      "lastName":"lastName1",
+      "emailId":"emailAdd1"
+    }
+  Note : field name are same on Employee class field name
+
+  GET localhost:8080/api   SEND
+    [
+        {
+            "id": 1,
+            "firstName": "firstName1",
+            "lastName": "lastName1",
+            "emailId": "emailAdd1"
+        },
+        {
+            "id": 2,
+            "firstName": "firstName2",
+            "lastName": "lastName2",
+            "emailId": "emailAdd2"
+        }
+    ]
+
+  GET localhost:8080/api/employees/1    SEND
+    {
+        "id": 1,
+        "firstName": "firstName1",
+        "lastName": "lastName1",
+        "emailId": "emailAdd1"
+    }
+
+  DELETE localhost:8080/api/employees/1   SEND
+    {
+        "Deleted": true
+    }
+
+  PUT localhost:8080/api/employees/2  SEND
+    {
+        "id": 2,
+        "firstName": "firstName1",
+        "lastName": "lastName1",
+        "emailId": "emailAdd1"
+    }
+
+  Simulating Exceptions
+
+  GET localhost:8080/api/employees/1    SEND
+    {
+        "timestamp": "2020-04-27T14:32:29.101+0000",
+        "message": "Employee with 1 not found",
+        "details": "uri=/api/employees/1"
+    }
+
+  Same response from GET for DELETE & PUT
+
+---------------------------------------------------------------------------------------------------------------------------
+
+H2 Console
+  after enabling H2 Console on application.properties by adding the code below
+    
+    # Enabling H2 Console
+    spring.h2.console.enabled=true
+    # Custom H2 Console URL
+    spring.h2.console.path=/any_url_name
+
+  type : http://localhost:8080/any_url_name on web browser
+
+  -----------------------------------------------------------------------------------------------------------------------
+  
+  click JDBC URL : and you will get Descriptions below
+    H2 Database URLs : from H2 Console
+    Embedded
+      The URL jdbc:h2:~/test means the database is stored in the user home directory in files starting with 'test'. 
+      Absolute locations like jdbc:h2:/data/db/test are supported. 
+      In embedded mode, the database runs in the same process as the application. 
+      Only one process may access a database at any time. Databases are automatically created if they don't exist if you have a permission. 
+      URLs of the form jdbc:h2:./data/test are relative to the current working directory (the directory where the application was started). 
+      It is recommended to use locations relative to ~ or absolute locations.
+
+    Remote (client/server)
+      The URL jdbc:h2:tcp://localhost/~/test means connect over TCP/IP to the H2 TCP server running on this computer, 
+      and open a database called test in the user home directory. The server must be started first. Any number of clients 
+      can connect to the same database. The same location rules as for embedded databases apply.
+
+    In-Memory
+      The URL jdbc:h2:mem:test means open an in-memory database named 'test'. 
+      Data is not persisted, and lost when the last connection to the database is closed. 
+      Multiple threads can access the same database, but data is only visible within the same process.
+
+  -----------------------------------------------------------------------------------------------------------------------
+
+  replace the default JDBC URL : 
+    from -> jdbc:h2:~/test
+    to -> jdbc:h2:mem:testdb
+
+  Note : we use In-Memory on application.properties
+    spring.datasource.url=jdbc:h2:mem:testdb
+  so we need to configure the console too
+    JDBC URL : jdbc:h2:mem:testdb
+
+  then click Test Connection and Test successful will be rendered
+  then click Connect ot see the database table details and stuffs
+
+  -----------------------------------------------------------------------------------------------------------------------
+
+  upon using Embedded by setting application.properties to :
+    spring.datasource.url=jdbc:h2:C:/Users/mmacaranas/Documents/any_file_name
+  and configuring H2 Console to :
+    JDBC URL : jdbc:h2:C:/Users/mmacaranas/Documents/any_file_name
+
+    - it will create any_file_name.mv.db on the directory where it was declared
+  
+
+
+
+
+  
+
