@@ -1,0 +1,220 @@
+reference : https://www.javainuse.com/spring/springbootbatchtaskscheduler
+
+---------------------------------------------------------------------------------------------------------------------------
+
+In this post we develop a simple Spring Boot Batch application where batch job gets triggered using a scheduler.
+Consider the simple use case where the user wants to delete files from a particular location everyday at a particular time.
+We will schedule this batch job using the scheduler.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+design flow 
+
+    ---------------------   Trigger   ------------------    Start Job    ------------------ 
+    |  Scheduler        |             |     Batch      |                 |  FileDelete    |
+    |  (Cron Config)    |   ---->     |       Job      |    ----->       |   Tasklet      |  
+    ---------------------             ------------------                 ------------------  
+
+---------------------------------------------------------------------------------------------------------------------------
+
+task
+    FileDeletingTasklet class
+            implements Tasklet, InitializingBean
+        create directory variable with Resource data type which will pertain to the files
+            private Resource directory;
+            setter() & getter()
+        alt + enter -> override methods : execute() & afterPropertiesSet()
+            on execute() method, invoke the directory variable on File
+                    File dir = directory.getFile();
+                create array of File then invoke the dir above with File data type
+                    File[] files = dir.listFiles();
+                iterate on the files then make the logic for delete
+                    for (int i = 0; i < files.length; i++) {
+                        boolean deleted = files[i].delete();
+                        if (!deleted){
+                            throw  new UnexpectedJobExecutionException("Could not delete file "+files[i].getName());
+                        }else {
+                            System.out.println(files[i].getPath() + " is deleted!");
+                        }
+                    }
+                finally, 
+                    return RepeatStatus.FINISHED;
+
+            on afterPropertiesSet() method, make a logic for checking the directory variable
+                if (directory != null ){
+                    System.out.println("directory is set");
+                }else {
+                    System.out.println("directory must be set");
+                }
+
+---------------------------------------------------------------------------------------------------------------------------
+
+configuration/job
+    ProcessMultiFilesJob class
+        @Configuration
+        @EnableBatchProcessing
+        @Autowired
+        private JobBuilderFactory jobBuilderFactory;
+        @Autowired
+        private StepBuilderFactory stepBuilderFactory;
+        @Autowired
+        private SimpleJobLauncher simpleJobLauncher;
+        @Value("file:directory_path_where_the_files_will_be_deleted")
+        private Resource directory;
+
+        ---------------------------------------------------------------------------------------------------------------------
+
+        @Bean
+        public ResourcelessTransactionManager transactionManager(){.......}
+        @Bean
+        public MapJobRepositoryFactoryBean mapJobRepositoryFactoryBean(ResourcelessTransactionManager resourcelessTransactionManager){.......}
+            invoke ResourcelessTransactionManager to a MapJobRepositoryFactoryBean then append .afterPropertiesSet();
+        @Bean
+        public JobRepository jobRepository(MapJobRepositoryFactoryBean mapJobRepositoryFactoryBean){.......}
+            invoke MapJobRepositoryFactoryBean then append .getObject()
+        @Bean
+        public SimpleJobLauncher jobLauncher(JobRepository jobRepository){.......}
+            invoke JobRepository by creating blank SimpleJobLauncher and appending .setJobrepository to the created JobRepository
+            
+        ---------------------------------------------------------------------------------------------------------------------
+
+        @Bean
+            public Job readFiles() {.......}
+                invoke the step1 below
+        @Bean
+            public Step step1() {.......}
+                invoke the fileDeletingTasklet below
+        @Bean
+            public FileDeletingTasklet fileDeletingTasklet() {......}
+                invoke the created FileDeletingTasklet by creating blank FileDeletingTasklet
+                and use the setter from that FileDeletingTasklet class to set the directory 
+                which contains the @Value annotation where it pertains to the directory 
+
+        ---------------------------------------------------------------------------------------------------------------------
+
+        AFTER 5 SECONDS AS CONFIGURED ON CRON
+
+        @Scheduled(cron = "*/5 * * * * *")
+            public void perform() throws JobParametersInvalidException, JobExecutionAlreadyRunningException, JobRestartException, JobInstanceAlreadyCompleteException {
+                System.out.println("Job Started at : "+new Date());
+                JobParameters parameters = new JobParametersBuilder().addString(
+                        "JobID",
+                        String.valueOf(System.currentTimeMillis())
+                ).toJobParameters();
+                JobExecution execution = simpleJobLauncher.run(readFiles(), parameters);
+                System.out.println("Job finished with status : "+execution.getStatus());
+            }
+
+---------------------------------------------------------------------------------------------------------------------------
+    
+SimpleSchedulerSpringBootBatchApplication class
+    
+    appending (exclude = DataSourceAutoConfiguration.class) after @SpringBootApplication
+    as to exclude the database on Application startup execution error - see errors encounter below
+
+    The @EnableScheduling annotation is used to enable the scheduler for your application. 
+    This annotation should be added into the main Spring Boot application class file.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+errors encountered :
+
+    Error starting ApplicationContext. To display the conditions report re-run your application with 'debug' enabled.
+    2020-04-28 07:57:37.074 ERROR 4872 --- [           main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+    ***************************
+    APPLICATION FAILED TO START
+    ***************************
+    Description:
+    The bean 'transactionManager', defined in class path resource [com/example/SimpleSchedulerSpringBootBatch/configuration/jobs/ProcessMultiFilesJob.class], could not be registered. A bean with that name has already been defined in class path resource [org/springframework/batch/core/configuration/annotation/SimpleBatchConfiguration.class] and overriding is disabled.
+    Action:
+    Consider renaming one of the beans or enabling overriding by setting spring.main.allow-bean-definition-overriding=true
+    Process finished with exit code 1
+
+    solution : 
+        added the suggested Action from the error on application.properties like below 
+            spring.main.allow-bean-definition-overriding=true
+
+    -----------------------------------------------------------------------------------------------------------------------
+
+    Error starting ApplicationContext. To display the conditions report re-run your application with 'debug' enabled.
+    2020-04-28 09:24:32.492 ERROR 20940 --- [           main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+    ***************************
+    APPLICATION FAILED TO START
+    ***************************
+    Description:
+    Failed to configure a DataSource: 'url' attribute is not specified and no embedded datasource could be configured.
+    Reason: Failed to determine a suitable driver class
+    Action:
+    Consider the following:
+        If you want an embedded database (H2, HSQL or Derby), please put it on the classpath.
+        If you have database settings to be loaded from a particular profile you may need to activate it (no profiles are currently active).
+    Process finished with exit code 1
+
+    solution :
+        added below code after @SpringBootApplication on main method
+            (exclude = DataSourceAutoConfiguration.class)
+
+----------------------------------------------------------------------------------------------------------------------------------
+
+IMPORTANT NOTES : 
+    https://www.tutorialspoint.com/spring_boot/spring_boot_scheduling.htm
+    @EnableScheduling 
+        The @EnableScheduling annotation is used to enable the scheduler for your application.
+        This annotation should be added into the main Spring Boot application class file.
+    https://riptutorial.com/spring/example/21209/cron-expression
+    @Scheduled
+        A Cron expression consists of six sequential fields -
+        second, minute, hour, day of month, month, day(s) of week
+        and is declared as follows
+        @Scheduled(cron = "* * * * * *")
+    https://www.javainuse.com/spring/springbootbatchtaskscheduler
+    In the application.properties,
+        add the following property which tells the Spring Boot Application to not start the Batch Job on Application startup
+            spring.batch.job.enabled=false
+
+----------------------------------------------------------------------------------------------------------------------------------
+
+Run Console execution flow :
+
+    2020-04-28 10:20:15.534  INFO 8296 --- [           main] impleSchedulerSpringBootBatchApplication : Starting SimpleSchedulerSpringBootBatchApplication on win-wks3633 with PID 8296 (C:\Users\mmacaranas\Downloads\Simple-Scheduler-SpringBoot-Batch\target\classes started by mmacaranas in C:\Users\mmacaranas\Downloads\Simple-Scheduler-SpringBoot-Batch)
+    2020-04-28 10:20:15.539  INFO 8296 --- [           main] impleSchedulerSpringBootBatchApplication : No active profile set, falling back to default profiles: default
+    Config ResourcelessTransactionManager
+    Config MapJobRepositoryFactoryBean
+    Config JobRepository
+    Config SimpleJobLauncher
+    2020-04-28 10:20:17.680  INFO 8296 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : No TaskExecutor has been set, defaulting to synchronous executor.
+    Config Job
+    Config Step
+    Config set tasklet to directory
+    directory is set
+    2020-04-28 10:20:18.142  INFO 8296 --- [           main] o.s.s.c.ThreadPoolTaskScheduler          : Initializing ExecutorService 'taskScheduler'
+    2020-04-28 10:20:18.274  INFO 8296 --- [           main] impleSchedulerSpringBootBatchApplication : Started SimpleSchedulerSpringBootBatchApplication in 3.641 seconds (JVM running for 5.113)
+    2020-04-28 10:20:18.276  INFO 8296 --- [           main] o.s.b.a.b.JobLauncherCommandLineRunner   : Running default command line with: []
+    2020-04-28 10:20:18.302  WARN 8296 --- [           main] o.s.b.c.c.a.DefaultBatchConfigurer       : No datasource was provided...using a Map based JobRepository
+    2020-04-28 10:20:18.302  WARN 8296 --- [           main] o.s.b.c.c.a.DefaultBatchConfigurer       : No transaction manager was provided, using a ResourcelessTransactionManager
+    2020-04-28 10:20:18.306  INFO 8296 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : No TaskExecutor has been set, defaulting to synchronous executor.
+    2020-04-28 10:20:18.375  INFO 8296 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=readFiles]] launched with the following parameters: [{run.id=1}]
+    2020-04-28 10:20:18.470  INFO 8296 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [step1]
+    C:\Users\mmacaranas\Documents\try\New Text Document.txt is deleted!
+    2020-04-28 10:20:18.505  INFO 8296 --- [           main] o.s.batch.core.step.AbstractStep         : Step: [step1] executed in 34ms
+    2020-04-28 10:20:18.525  INFO 8296 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=readFiles]] completed with the following parameters: [{run.id=1}] and the following status: [COMPLETED] in 84ms
+    Job Started at : Tue Apr 28 10:20:20 SGT 2020
+    2020-04-28 10:20:20.012  INFO 8296 --- [   scheduling-1] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=readFiles]] launched with the following parameters: [{JobID=1588040420002}]
+    2020-04-28 10:20:20.029  INFO 8296 --- [   scheduling-1] o.s.batch.core.job.SimpleStepHandler     : Executing step: [step1]
+    2020-04-28 10:20:20.038  INFO 8296 --- [   scheduling-1] o.s.batch.core.step.AbstractStep         : Step: [step1] executed in 8ms
+    2020-04-28 10:20:20.045  INFO 8296 --- [   scheduling-1] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=readFiles]] completed with the following parameters: [{JobID=1588040420002}] and the following status: [COMPLETED] in 29ms
+    Job finished with status : COMPLETED
+    Job Started at : Tue Apr 28 10:20:25 SGT 2020
+    2020-04-28 10:20:25.013  INFO 8296 --- [   scheduling-1] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=readFiles]] launched with the following parameters: [{JobID=1588040425002}]
+    2020-04-28 10:20:25.037  INFO 8296 --- [   scheduling-1] o.s.batch.core.job.SimpleStepHandler     : Executing step: [step1]
+    C:\Users\mmacaranas\Documents\try\New Text Document.txt is deleted!
+    2020-04-28 10:20:25.049  INFO 8296 --- [   scheduling-1] o.s.batch.core.step.AbstractStep         : Step: [step1] executed in 11ms
+    2020-04-28 10:20:25.054  INFO 8296 --- [   scheduling-1] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=readFiles]] completed with the following parameters: [{JobID=1588040425002}] and the following status: [COMPLETED] in 38ms
+    Job finished with status : COMPLETED
+    Job Started at : Tue Apr 28 10:20:30 SGT 2020
+    2020-04-28 10:20:30.021  INFO 8296 --- [   scheduling-1] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=readFiles]] launched with the following parameters: [{JobID=1588040430003}]
+    2020-04-28 10:20:30.038  INFO 8296 --- [   scheduling-1] o.s.batch.core.job.SimpleStepHandler     : Executing step: [step1]
+    C:\Users\mmacaranas\Documents\try\New Text Document.txt is deleted!
+    2020-04-28 10:20:30.051  INFO 8296 --- [   scheduling-1] o.s.batch.core.step.AbstractStep         : Step: [step1] executed in 12ms
+    2020-04-28 10:20:30.057  INFO 8296 --- [   scheduling-1] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=readFiles]] completed with the following parameters: [{JobID=1588040430003}] and the following status: [COMPLETED] in 32ms
+    Job finished with status : COMPLETED

@@ -1,0 +1,180 @@
+reference : https://www.javainuse.com/spring/bootbatch
+    In this post we will implement a Spring Boot Batch Job got triggered by a REST API call
+
+------------------------------------------------------------------------------------------------------------------------
+
+dependency : Spring Web, H2 Database & Spring Batch
+	    <dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-batch</artifactId>
+        </dependency>
+
+------------------------------------------------------------------------------------------------------------------------
+
+data flow :
+
+    ------------------          ------------------          ------------------             ------------------
+    |  JobLauncher   |   -->    |       Job      |   -->    |      Step      |   ----->    |   ItemReader   |
+    ------------------          ------------------          ------------------     |       ------------------
+            /|\                         /|\                         /|\            |
+             |                           |                           |             |-->    ------------------
+            \|/                         \|/                         \|/            |       |  ItemProcessor  |
+    --------------------------------------------------------------------------     |       ------------------
+    |                                                                        |     |
+    |                               JobRepository                            |     |-->     ------------------
+    |                                                                        |              |  ItemWriter    |
+    --------------------------------------------------------------------------              ------------------
+
+    step - A Step that delegates to a Job to do its work.
+        This is a great tool for managing dependencies between jobs,
+        and also to modularise complex step logic into something that is testable in isolation.
+        The job is executed with parameters that can be extracted from the step execution,
+        hence this step can also be usefully used as the worker in a parallel or partitioned execution.
+
+    ItemReader - Strategy interface for providing the data.
+        Implementations are expected to be stateful and will be called multiple times for each batch,
+        with each call to read() returning a different value and finally returning null when all input data is exhausted.
+        Implementations need not be thread-safe and clients of a ItemReader need to be aware that this is the case.
+        A richer interface (e.g. with a look ahead or peek) is not feasible because we need to support transactions in an asynchronous batch.
+
+    ItemProcessor - Interface for item transformation.
+        Given an item as input, this interface provides an extension point which allows for the application of business logic in an item oriented processing scenario.
+        It should be noted that while it's possible to return a different type than the one provided, it's not strictly necessary.
+        Furthermore, returning null indicates that the item should not be continued to be processed.
+
+    ItemStreamWriter - Basic interface for generic output operations.
+        Class implementing this interface will be responsible for serializing objects as necessary.
+        Generally, it is responsibility of implementing class to decide which technology to use for mapping and how it should be configured.
+        The write method is responsible for making sure that any internal buffers are flushed.
+        If a transaction is active it will also usually be necessary to discard the output on a subsequent rollback.
+        The resource to which the writer is sending data should normally be able to handle this itself.
+
+------------------------------------------------------------------------------------------------------------------------
+
+listener
+    JobCompletionListener class
+        extends JobExecutionListenerSupport
+        alt + insert -> override methods : select afterJob()
+
+------------------------------------------------------------------------------------------------------------------------
+
+step
+    Reader class
+        implements ItemReader<String>
+        alt + enter -> implement method
+    ItemProcessor class
+        implements ItemProcessor<String, String>
+        alt + enter -> implement method
+    Writer class
+        implements ItemWriter<String, String>
+        alt + enter -> implement method
+
+------------------------------------------------------------------------------------------------------------------------
+
+configuration
+    BatchConfig class
+        @Configuration
+        @Autowired
+        public JobBuilderFactory jobBuilderFactory;
+        @Autowired
+        public StepBuilderFactory stepBuilderFactory;
+        @Bean
+        public Job processJob(){return jobBuilderFactory.......}
+        @Bean
+        public Step orderStep1(){return stepBuilderFactory.......}
+        @Bean
+        public JobExecutionListener listener(){return new JobCompletionListener() class}
+
+------------------------------------------------------------------------------------------------------------------------
+
+contoller
+    JobInvokeController class
+        @RestController
+        @Autowired
+        JobLauncher jobLauncher;
+        @Autowired
+        @RequestMapping("/invokejob")
+        public String handle(){.......}
+
+------------------------------------------------------------------------------------------------------------------------
+
+execution flow : based on Run console
+
+    2020-04-28 06:57:01.348  INFO 18880 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+    2020-04-28 06:57:01.982  INFO 18880 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+    2020-04-28 06:57:02.018  INFO 18880 --- [           main] o.s.b.a.h2.H2ConsoleAutoConfiguration    : H2 console available at '/h2'. Database available at 'jdbc:h2:mem:testdb'
+    Config Job
+    Config Step
+    Config Listener
+    2020-04-28 06:57:03.118  INFO 18880 --- [           main] o.s.s.concurrent.ThreadPoolTaskExecutor  : Initializing ExecutorService 'applicationTaskExecutor'
+    2020-04-28 06:57:04.048  INFO 18880 --- [           main] o.s.b.c.r.s.JobRepositoryFactoryBean     : No database type set, using meta data indicating: H2
+    2020-04-28 06:57:04.520  INFO 18880 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : No TaskExecutor has been set, defaulting to synchronous executor.
+    2020-04-28 06:57:05.063  INFO 18880 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+    2020-04-28 06:57:05.080  INFO 18880 --- [           main] .e.B.BasicSpringBootBatchDemoApplication : Started BasicSpringBootBatchDemoApplication in 11.629 seconds (JVM running for 13.391)
+    2020-04-28 06:57:05.082  INFO 18880 --- [           main] o.s.b.a.b.JobLauncherCommandLineRunner   : Running default command line with: []
+    2020-04-28 06:57:05.418  INFO 18880 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=processJob]] launched with the following parameters: [{run.id=1}]
+    2020-04-28 06:57:05.524  INFO 18880 --- [           main] o.s.batch.core.job.SimpleStepHandler     : Executing step: [orderStep1]
+    Step Reader
+    Step Process
+    Step Writer
+    Writing the data JAVAINUSE.COM
+    Step Reader
+    Step Process
+    Step Writer
+    Writing the data WELCOME TO SPRING BATCH EXAMPLE
+    Step Reader
+    Step Process
+    Step Writer
+    Writing the data WE USE H2 DATABASE FOR THIS EXAMPLE
+    2020-04-28 06:57:05.649  INFO 18880 --- [           main] o.s.batch.core.step.AbstractStep         : Step: [orderStep1] executed in 124ms
+    2020-04-28 06:57:05.677  INFO 18880 --- [           main] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=processJob]] completed with the following parameters: [{run.id=1}] and the following status: [COMPLETED] in 183ms
+
+    ------------------          ------------------          ------------------             ------------------
+    |  JobLauncher   |   -->    |       Job      |   -->    |      Step      |   ----->    |   ItemReader   |
+    ------------------          ------------------          ------------------     |       ------------------
+            /|\                         /|\                         /|\            |
+             |                           |                           |             |-->    ------------------
+            \|/                         \|/                         \|/            |       |  ItemProcessor  |
+    --------------------------------------------------------------------------     |       ------------------
+    |                                                                        |     |
+    |                               JobRepository                            |     |-->     ------------------
+    |                                                                        |              |  ItemWriter    |
+    --------------------------------------------------------------------------              ------------------
+
+invoking the batch job using REST API call by typing localhost:8080/invokejob on web browser
+
+    2020-04-28 07:03:43.875  INFO 2720 --- [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+    2020-04-28 07:03:43.876  INFO 2720 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+    2020-04-28 07:03:43.895  INFO 2720 --- [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 19 ms
+    2020-04-28 07:03:43.976  INFO 2720 --- [nio-8080-exec-1] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=processJob]] launched with the following parameters: [{time=1588028623954}]
+    2020-04-28 07:03:44.028  INFO 2720 --- [nio-8080-exec-1] o.s.batch.core.job.SimpleStepHandler     : Executing step: [orderStep1]
+    Step Reader
+    Step Process
+    Step Writer
+    Writing the data JAVAINUSE.COM
+    Step Reader
+    Step Process
+    Step Writer
+    Writing the data WELCOME TO SPRING BATCH EXAMPLE
+    Step Reader
+    Step Process
+    Step Writer
+    Writing the data WE USE H2 DATABASE FOR THIS EXAMPLE
+    2020-04-28 07:03:44.063  INFO 2720 --- [nio-8080-exec-1] o.s.batch.core.step.AbstractStep         : Step: [orderStep1] executed in 34ms
+    2020-04-28 07:03:44.073  INFO 2720 --- [nio-8080-exec-1] o.s.b.c.l.support.SimpleJobLauncher      : Job: [FlowJob: [name=processJob]] completed with the following parameters: [{time=1588028623954}] and the following status: [COMPLETED] in 93ms
+    RestController
+
+web browser output : Batch job has been invoked
+
+------------------------------------------------------------------------------------------------------------------------
+
+H2 Console
+    upon connecting on the H2 Console, Tables about Job & Step were created
