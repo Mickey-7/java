@@ -1,0 +1,225 @@
+reference : https://stackabuse.com/uploading-files-with-spring-boot/
+
+-----------------------------------------------------------------------------------------------------------
+
+error encountered :
+    Error:java: error: release version 5 not supported
+
+solution :
+    modify the version on pom.xml, from 2.1.3 to
+
+    	<version>2.2.4.RELEASE</version>
+
+-----------------------------------------------------------------------------------------------------------
+
+create advice/FileStorageException class extends RuntimeException
+
+    Custom Exception
+        We wrote a custom FileStorageException for any exception during the file upload process.
+        It's a simple class that extends RuntimeException:
+
+
+    public class FileStorageException extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+        private String msg;
+
+        // alt + insert - constructor RuntimeException()
+        public FileStorageException(String msg) {
+            this.msg = msg;
+        }
+
+        // alt + insert - getter
+        public String getMsg() {
+            return msg;
+        }
+    }
+
+-----------------------------------------------------------------------------------------------------------
+
+create advice/AppExceptionHandler class
+
+    To be able to use the exception in the way that we did,
+    Spring needs to know how to deal with it if it's encountered.
+    For that, we've created an AppExceptionHandler which is annotated with @ControllerAdvice
+    and has an @ExceptionHandler defined for FileStorageException:
+
+    @ControllerAdvice
+    public class AppExceptionHandler {
+        @ExceptionHandler(FileStorageException.class)
+        public ModelAndView handleException(FileStorageException exception, RedirectAttributes redirectAttributes){
+            ModelAndView mav = new ModelAndView();
+            mav.addObject("message", exception.getMsg());
+            mav.setViewName("error");
+            return mav;
+        }
+    }
+
+    In the handleException method we simply returned the ModelAndView object
+    that will return the error message set in a view of error,
+    which is just a Thymeleaf template named error.html:
+
+-----------------------------------------------------------------------------------------------------------
+
+create error.html,
+
+    <!DOCTYPE html>
+    <html xmlns:th="http://www.thymeleaf.org">
+    <head>
+      <meta charset="UTF-8">
+      <title>ERROR</title>
+    </head>
+    <body>
+      <h1>Error!!!</h1>
+      <div th:if="${message}">
+        <h2 th:text="${message}"/>
+      </div>
+    </body>
+    </html>
+
+-----------------------------------------------------------------------------------------------------------
+
+create service/FileService class
+
+    @Service is a specialization of the @Component annotation.
+        It tells Spring that this is a service class. Typically all the business logic is written in this layer.
+    We then have a variable uploadDir, which we will be using to store the path of the directory we want our file to be uploaded to.
+        It is annotated with @Value, which means its value can be set by the application.properties file by the app.upload.dir key.
+        In case this key is not defined, the default value is user.home - which is there in an environment variable of every OS.
+    Then we have a public method uploadFile which takes in a MultipartFile as an argument.
+    We then created the full Path of the file by using the Paths class provided by Java.
+        StringUtils.cleanPath is used to clean the path and we simply append uploadDir to it using a File.separator.
+        Always use utility methods to handle paths in code because it will automatically handle different OS implementations.
+        For example, in Windows, the file separator is \ while in Linux it's /.
+    Then we copy the file to the location using Files.copy.
+        The REPLACE_EXISTING copy option will override any file with the same name there.
+    If there is an Exception in this whole process we captured it and threw a custom FileStorageException exception.
+
+
+    @Service
+    public class FileService {
+
+        @Value("${app.upload.dir:${user.home}}")
+        public String uploadDir;
+
+        public void uploadFile(MultipartFile file) {
+            Path copyLocation = Paths.get(
+                    uploadDir + File.separator + StringUtils.cleanPath(file.getOriginalFilename())
+            );
+
+            try {
+                // surround with try/catch on .getInputStream()
+                Files.copy(file.getInputStream(), copyLocation, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                e.printStackTrace();
+                // invoke the exception
+                throw new FileStorageException("Could not store file "+file.getOriginalFilename()+". Please try again!");
+
+            }
+        }
+    }
+
+-----------------------------------------------------------------------------------------------------------
+
+ create controller/FileController class
+
+    @Controller annotation is also a specialization of @Component annotation.
+        It makes a class accept the HTTP request and respond accordingly.
+        It also takes care of the various conversion of request payload to an internal data structure.
+    Next we @Autowired the FileService bean so that we can use its uploadFile method.
+    Then we have a simple GetMapping at / which will simply return String upload.
+        Being a controller class Spring will search for upload.html and serve it to the browser.
+    Next, we have a PostMapping of /uploadFile, which have a RequestParam of MultipartFile which is an object that has our file and its metadata details.
+    We then used the FileService uploadFile method to upload the file.
+        RedirectAttributes is a specialization of Spring Model interface that is use to select attributes for a redirect scenario.
+    If the above operation is successful, we set the success message in redirectAttributes and redirect to the same page.
+
+    @Controller
+    public class FileController {
+
+        @Autowired
+        FileService fileService;
+
+        @GetMapping()
+        public String index(){
+            return "upload";
+        }
+
+        @PostMapping()
+        public String uploadFile(@RequestParam MultipartFile file, RedirectAttributes redirectAttributes){
+            //invoke service
+            fileService.uploadFile(file);
+            redirectAttributes.addFlashAttribute("message", "You successfully uploaded "+file.getOriginalFilename()+"!");
+            return "redirect:/";
+        }
+    }
+
+-----------------------------------------------------------------------------------------------------------
+
+create upload.html,
+
+    <!DOCTYPE html>
+    <html xmlns:th="http://www.thymeleaf.org">
+    <body>
+      <h1>Spring Boot File Upload Example</h1>
+      <hr/>
+      <h4>Upload Single File:</h4>
+      <form method="POST" th:action="@{/uploadFile}" enctype="multipart/form-data">
+        <input type="file" name="file"/> <br/><br/>
+        <button type="submit">Submit</button>
+      </form>
+      <hr/>
+      <div th:if="${message}">
+        <h2 th:text="${message}"/>
+      </div>
+    </body>
+    </html>
+
+    Above, we have a simple form that maps to the /uploadFile URL.
+    Notice that it's enctype is multipart/form-data and input type as file.
+    At the bottom it has a message div to display the success message.
+
+-----------------------------------------------------------------------------------------------------------
+
+Uploading Multiple Files
+
+    Similarly, we can write code for uploading multiple files.
+    Add the following mapping in FileController.java:
+
+    // added for multiple upload
+    @PostMapping("/uploadFiles")
+    public String uploadFiles(@RequestParam MultipartFile[] files, RedirectAttributes redirectAttributes){
+        Arrays.asList(files)
+                .stream()
+                //invoke service
+                .forEach(file -> fileService.uploadFile(file));
+        redirectAttributes.addFlashAttribute("message","You successfully uploaded all files!");
+        return "redirect:/";
+    }
+
+    As you can see, the /uploadFiles mapping is similar to the previous one,
+     except it has a MultipartFile[] as an argument.
+     We used the Java 8 Stream API to upload each file in the array.
+
+    Just like before, if the above operation is successful,
+    we set the success message in redirectAttributes and redirect to the same page.
+
+-----------------------------------------------------------------------------------------------------------
+
+update upload.html
+-----------------------------------------------------------------------------------------------------------
+
+on application.properties,
+
+    Limiting Filesize
+        You can tune the file upload limits by using spring.servlet.multipart.max-file-size
+        and spring.servlet.multipart.max-request-size in application.properties:
+
+        spring.servlet.multipart.max-file-size = 5MB
+        spring.servlet.multipart.max-request-size = 5MB
+
+    You can set the limits in KB, MB, GB, etc.
+    The default value for spring.servlet.multipart.max-file-size is 1MB
+    and the default for spring.servlet.multipart.max-request-size is 10MB.
+    Increasing the limit for max-file-size is probably a good idea since the default is very low,
+    but be careful not to set it too high, which could overload your server.
