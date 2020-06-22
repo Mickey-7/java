@@ -1,0 +1,228 @@
+reference : https://www.javaguides.net/2019/08/spring-boot-hibernate-many-to-many-example.html?m=1
+
+--------------------------------------------------------------------------------------------------
+    
+class implementation :    
+    _____________________               ________________________                _____________________
+    |                   |               |                       |               |                   |
+    |   Employee        |---extends---> |    AuditModel         | <---extends---|   Project         |
+    |    class          |               |      class            |               |     class         |
+    |                   |               |                       |               |                   |
+    |    createdAt      |               |     createdAt         |               |  createdAt        |
+    |    updatedAt      |               |     updatedAt         |               |   updatedAt       |
+    |                   |               |                       |               |                   |
+    _____________________               _________________________               _____________________
+
+--------------------------------------------------------------------------------------------------
+
+create model/AuditModel class
+
+    We’ll abstract out these common fields (createdAt & updatedAt) in a separate class 
+    called AuditModel and extend this class in the Employee and Project entities.
+    
+    @MappedSuperclass
+    @EntityListeners(AuditingEntityListener.class)
+    public class AuditModel  implements Serializable {
+
+        @Temporal(TemporalType.TIMESTAMP)
+        @Column(name = "created_at", nullable = false,updatable = false)
+        @CreatedDate
+        private Date createdAt;
+
+        @Temporal(TemporalType.TIMESTAMP)
+        @Column(name = "updated_at", nullable = false)
+        @LastModifiedDate
+        private Date updatedAT;
+
+        // setters & getters
+    }
+
+    In the above class, we’re using Spring Boot’s AuditingEntityListener 
+    to automatically populate the createdAt and updatedAt fields.
+
+--------------------------------------------------------------------------------------------------
+
+Enabling JPA Auditing
+
+    To enable JPA Auditing, we need to add @EnableJpaAuditing 
+    annotation to one of our configuration classes. 
+    Let's open the main class JPAAuditModelH2Application.java 
+    and add the @EnableJpaAuditing to the main class like so -
+
+    // Enabling JPA Auditing
+    @EnableJpaAuditing 
+    @SpringBootApplication
+    public class Application implements CommandLineRunner {
+       // code goes here
+    }
+
+--------------------------------------------------------------------------------------------------
+
+create model/Employee class extends AuditModel 
+
+    @Entity
+    @Table(name = "employees")
+    public class Employee extends  AuditModel{
+    
+        @Id
+        @Column(name = "employee_id")
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long employeeId;
+    
+        @Column(name = "first_name")
+        private String firstName;
+    
+        @Column(name = "last_name")
+        private String lastName;
+    
+        //blank constructor
+        //constructor
+        //setters & getters
+        //toString
+    
+    
+    }
+
+--------------------------------------------------------------------------------------------------
+
+create model/Project class extends AuditModel
+
+    @Entity
+    @Table(name = "projects")
+    public class Project extends AuditModel{
+    
+        @Id
+        @Column(name = "project_id")
+        @GeneratedValue
+        private Long projectId;
+        
+        @Column(name = "title")
+        private String title;
+    
+        //blank constructor
+        //constructor
+        //setters & getters
+        //toString
+    }
+
+--------------------------------------------------------------------------------------------------
+
+create repository/EmployeeRepository interface
+
+    @Repository
+    public interface EmployeeRepository extends JpaRepository<Employee,Long> {
+    }
+
+--------------------------------------------------------------------------------------------------
+
+create repository/ProjectRepository interface
+
+    @Repository
+    public interface ProjectRepository extends JpaRepository<Project,Long> {
+    }
+
+--------------------------------------------------------------------------------------------------
+
+create controller/EmployeeController class and controller/ProjectController class
+
+    both contains basic CRUD method
+
+--------------------------------------------------------------------------------------------------
+
+run the app then check the created table on the H2
+
+    type on web browser: http://localhost:8080/h2 
+
+    the column created_at & updated_at is present @ both table (employees & projects)     
+
+--------------------------------------------------------------------------------------------------
+
+Postman :
+
+    Employee
+
+        POST    localhost:8080/api/employee/    SEND
+
+            POST body :
+
+            {
+                "firstName":"first",
+                "lastName":"last"
+            } 
+
+            RESPONSE body once SEND :
+
+            {
+                "createdAt": "2020-05-19T02:48:33.686+00:00",
+                "updatedAT": "2020-05-19T02:48:33.686+00:00",
+                "employeeId": 1,
+                "firstName": "first",
+                "lastName": "last"
+            }
+
+        --------------------------------------------------------------------------------------------------
+        
+        PUT     localhost:8080/api/employee/1   SEND
+
+            PUT body :
+
+            {
+                "firstName":"middle",
+                "lastName":"middle"
+            } 
+
+            RESPONSE body once SEND :
+
+            {
+                "createdAt": "2020-05-19T02:48:33.686+00:00",
+                "updatedAT": "2020-05-19T02:49:56.719+00:00",
+                "employeeId": 1,
+                "firstName": "middle",
+                "lastName": "middle"
+            }
+
+        notice the updated change in TIMESTAMP
+
+        --------------------------------------------------------------------------------------------------
+
+    Project
+
+        POST    http://localhost:8080/api/project/   SEND
+
+               POST body :
+
+                {
+                    "title":"project1"
+                }
+
+               RESPONSE body once SEND :
+
+                {
+                    "createdAt": "2020-05-19T02:54:29.692+00:00",
+                    "updatedAT": "2020-05-19T02:54:29.692+00:00",
+                    "projectId": 1,
+                    "title": "project1"
+                }
+
+           --------------------------------------------------------------------------------------------------
+
+           PUT     http://localhost:8080/api/project/1   SEND
+
+               PUT body :
+
+                {
+                	"title":"PROJECT-X"
+                }
+
+               RESPONSE body once SEND :
+
+                {
+                    "createdAt": "2020-05-19T02:54:29.692+00:00",
+                    "updatedAT": "2020-05-19T02:56:25.500+00:00",
+                    "projectId": 1,
+                    "title": "PROJECT-X"
+                }
+
+           notice the updated change in TIMESTAMP
+
+--------------------------------------------------------------------------------------------------

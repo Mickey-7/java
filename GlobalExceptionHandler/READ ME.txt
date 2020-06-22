@@ -1,0 +1,168 @@
+reference : https://github.com/PratikBlog92/youtube/tree/master/GlobalExceptionHandler
+
+------------------------------------------------------------------------------------------------------------------------
+
+on application.properties,
+        #In-Memory
+        #The URL jdbc:h2:mem:test means open an in-memory database named 'test'.
+        # Data is not persisted, and lost when the last connection to the database is closed.
+        # Multiple threads can access the same database, but data is only visible within the same process.
+        spring.datasource.url=jdbc:h2:mem:testdb
+        spring.datasource.driverClassName=org.h2.Driver
+        spring.datasource.username=sa
+        spring.datasource.password=
+        spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+
+        # Enabling H2 Console
+        spring.h2.console.enabled=true
+        # Custom H2 Console URL
+        spring.h2.console.path=/h2
+
+------------------------------------------------------------------------------------------------------------------------
+
+create domain/Student class,
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    @Data
+    @Table
+    @Entity
+    public class Student {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String firstName;
+        private String lastName;
+        private String address;
+    }
+
+create domain/ErrorDto class
+    @Data
+    public class ErrorDto {
+        private String timestamp;
+        private String status;
+        private String errorMessage;
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create repository/StudentRepository interface
+    @Repository
+    public interface StudentRepository extends JpaRepository<Student,Long> {
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create config/GlobalExceptionHandler class
+    @Slf4j
+    @ControllerAdvice
+    public class GlobalExceptionHandler {
+
+        //ResponseStatus
+        @ExceptionHandler(ResponseStatusException.class)
+        public ResponseEntity<ErrorDto> generateResponseStatusException(ResponseStatusException rse){
+            ErrorDto errorDto = new ErrorDto();
+            errorDto.setTimestamp(new Date().toString());
+            //.getStatus() -> output : HttpStatus
+            //.value() -> output : int
+            errorDto.setStatus(String.valueOf(rse.getStatus().value()));
+            errorDto.setErrorMessage(rse.getMessage());
+            //notice how we directly invoke log
+            log.error("Exception Occurred : ",rse);
+            //return new ResponseEntity<T> with errorDto, rse.getStatus()
+            return new ResponseEntity<>(errorDto,rse.getStatus());
+
+        }
+
+        //NotFound
+        @ExceptionHandler(NotFoundException.class)
+        public ResponseEntity<ErrorDto> generateNotFoundException(NotFoundException nfe){
+            ErrorDto errorDto = new ErrorDto();
+            errorDto.setTimestamp(new Date().toString());
+            //.getStatus() -> output : HttpStatus
+            //.value() -> output : int
+            errorDto.setStatus("404");
+            errorDto.setErrorMessage(nfe.getMessage());
+            //notice how we directly invoke log
+            log.error("Exception Occurred : ",nfe);
+            //return new ResponseEntity<T> with errorDto, rse.getStatus()
+            return new ResponseEntity<>(errorDto, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        //RunTime
+        @ExceptionHandler(RuntimeException.class)
+        public ResponseEntity<ErrorDto> generateRunTimeException(RuntimeException rte){
+            ErrorDto errorDto = new ErrorDto();
+            errorDto.setTimestamp(new Date().toString());
+            //.getStatus() -> output : HttpStatus
+            //.value() -> output : int
+            errorDto.setStatus("500");
+            errorDto.setErrorMessage(rte.getMessage());
+            //notice how we directly invoke log
+            log.error("Exception Occurred : ",rte);
+            //return new ResponseEntity<T> with errorDto, rse.getStatus()
+            return new ResponseEntity<>(errorDto, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create controller/StudentController class
+    @RestController
+    public class StudentController {
+        @Autowired
+        StudentRepository studentRepository;
+
+        @GetMapping("/test")
+        public String sayHello(){
+            //invoke RunTimeException
+            throw new RuntimeException("*******RunTimeException Occurred*******");
+        }
+
+        @GetMapping("/{id}")
+        public Student getStudent(@PathVariable Long id){
+            return studentRepository.findById(id).orElseThrow(
+                    //invoke ResponseStatusException
+                    () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found" )
+            );
+        }
+    }
+
+create controller/NotFoundException class extends RuntimeException
+    public class NotFoundException extends RuntimeException {
+        NotFoundException(String string){
+            super(string);
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+Postman
+    GET     http://localhost:8080/test      SEND
+
+    {
+        "timestamp": "Mon Jun 08 22:39:41 PST 2020",
+        "status": "500",
+        "errorMessage": "*******RunTimeException Occurred*******"
+    }
+
+
+    GET     http://localhost:8080/7     SEND
+
+    {
+        "timestamp": "Mon Jun 08 22:40:19 PST 2020",
+        "status": "404",
+        "errorMessage": "404 NOT_FOUND \"Student not found\""
+    }
+
+    GET     http://localhost:8080/try       SEND
+
+    {
+        "timestamp": "Mon Jun 08 22:41:36 PST 2020",
+        "status": "500",
+        "errorMessage": "Failed to convert value of type 'java.lang.String' to required type 'java.lang.Long'; nested exception is java.lang.NumberFormatException: For input string: \"try\""
+    }
+
+
+
+

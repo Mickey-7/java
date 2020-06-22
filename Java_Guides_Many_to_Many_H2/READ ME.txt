@@ -1,0 +1,512 @@
+https://www.javaguides.net/2019/08/spring-boot-hibernate-many-to-many-example.html?m=1
+
+database design - the created_at & updated_at are from AuditModel class
+    __________________________________           _______________________                   ___________________________
+    |   employees                    |           |  employees_projects |                   |  projects               |
+    |                                |           |                     |                   |                         |
+    |   employee_id                  | <-------> |   employee_id       |       ----------> |  project_id             |
+    |   first_name                   |           |                     |       |           |  title                  |
+    |   last_name                    |           |   project_id        | <------           |                         |
+    |                                |           |                     |                   |                         |
+    |    created_at                  |           |                     |                   |    created_at           |    
+    |    updated_at                  |           |                     |                   |    updated_at           |    
+    |                                |           |                     |                   |                         |    
+    __________________________________           _______________________                   ___________________________
+
+--------------------------------------------------------------------------------------
+
+added dependencies from https://start.spring.io/ :
+    JPA
+    Spring Web
+    H2
+
+--------------------------------------------------------------------------------------
+
+on src/main/resources/application.properties
+    setup H2 Configurations
+
+    #In-Memory
+    #The URL jdbc:h2:mem:test means open an in-memory database named 'test'.
+    # Data is not persisted, and lost when the last connection to the database is closed.
+    # Multiple threads can access the same database, but data is only visible within the same process.
+    spring.datasource.url=jdbc:h2:mem:testdb
+    spring.datasource.driverClassName=org.h2.Driver
+    spring.datasource.username=sa
+    spring.datasource.password=
+    spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+
+    # Enabling H2 Console
+    spring.h2.console.enabled=true
+    # Custom H2 Console URL
+    spring.h2.console.path=/h2
+
+--------------------------------------------------------------------------------------
+
+create model/Employee class
+
+    @Entity
+    @Table(name = "employees")
+    public class Employee {
+
+        @Id
+        @Column(name = "employee_id")
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long employeeId;
+
+        @Column(name = "first_name")
+        private String firstName;
+
+        @Column(name = "last_name")
+        private String lastName;
+
+        @ManyToMany(cascade =  CascadeType.ALL)
+                @JoinTable(
+                        name = "employees_projects",
+                        joinColumns = {
+                                @JoinColumn(name = "employee_id")
+                        },
+                        inverseJoinColumns = {
+                                @JoinColumn(name = "project_id")
+                        }
+                )
+        private List<Project> projects = new ArrayList<>(); 
+
+        //blank constructor
+        //constructor
+        //getters & setters
+        //toString
+    }
+
+--------------------------------------------------------------------------------------
+
+create model/Project class
+
+    @Entity
+    @Table(name = "projects")
+
+    public class Project {
+
+        @Id
+        @Column(name = "project_id")
+        @GeneratedValue
+        private Long projectId;
+
+        @Column(name = "title")
+        private String title;
+
+        // the "projects" below pertains to the projects on Employee class with @ManyToMany annotations
+        @ManyToMany( mappedBy = "projects", cascade =  CascadeType.ALL)
+        @JsonBackReference
+        private List<Employee> employees = new ArrayList<>();
+
+        //blank constructor
+        //constructor
+        //getters & setters
+        //toString
+    }
+
+--------------------------------------------------------------------------------------
+
+create repository/EmployeeRepository interface
+
+    @Repository
+    public interface EmployeeRepository extends JpaRepository<Employee,Long> {
+    }
+
+--------------------------------------------------------------------------------------
+
+create repository/Projectpository interface
+
+    @Repository
+    public interface ProjectRepository extends JpaRepository<Project,Long> {
+    }
+
+--------------------------------------------------------------------------------------
+
+create controller/EmployeeController class
+
+    @RestController
+    @RequestMapping("/api/employee")
+    public class EmployeeController {
+        private EmployeeRepository employeeRepository;
+        // for add project to employee
+        private ProjectRepository projectRepository;
+        @Autowired
+        public EmployeeController(EmployeeRepository employeeRepository, ProjectRepository projectRepository){
+            this.employeeRepository = employeeRepository;
+            this.projectRepository = projectRepository;
+        }
+
+        @PostMapping
+        public Employee addEmployee(@RequestBody Employee employee){
+            return employeeRepository.save(employee);
+        }
+
+        @GetMapping
+        public List<Employee> getAllEmployee(){
+            return employeeRepository.findAll();
+        }
+
+        @DeleteMapping("/{id}")
+        public void deleteEmployee(@PathVariable Long id){
+            employeeRepository.deleteById(id);
+        }
+
+        @PutMapping("/{id}")
+        public Employee updateEmployee(@PathVariable Long id, @RequestBody Employee employee){
+            Employee selectedEmployee = employeeRepository.findById(id).orElseThrow(null);
+            selectedEmployee.setFirstName(employee.getFirstName());
+            selectedEmployee.setLastName(employee.getLastName());
+            return employeeRepository.save(selectedEmployee);
+
+        }
+
+        //add project to employee
+        @PostMapping("/{empId}/addProject/{projId}")
+        public Employee addProjectToEmployee(@PathVariable Long empId, @PathVariable Long projId){
+            // find the selected employee
+            Employee selectedEmployee = employeeRepository.findById(empId).orElseThrow(null);
+            // find the selected project
+            Project selectedProject = projectRepository.findById(projId).orElseThrow(null);
+
+            //add the selected project to selected employee
+            //getProjects() -> output : List<Project>
+            selectedEmployee.getProjects().add(selectedProject);
+
+            // save the selected employee then return
+            return employeeRepository.save(selectedEmployee);
+        }
+    }
+
+
+--------------------------------------------------------------------------------------
+
+create controller/ProjectController class
+
+    @RestController
+    @RequestMapping("/api/project")
+    public class ProjectController {
+        private ProjectRepository projectRepository;
+        // for add employee to project
+        private EmployeeRepository employeeRepository;
+        @Autowired
+        public ProjectController(ProjectRepository projectRepository, EmployeeRepository employeeRepository){
+            this.projectRepository = projectRepository;
+            this.employeeRepository = employeeRepository;
+        }
+
+        @PostMapping
+        public Project addProject(@RequestBody Project project){
+            return projectRepository.save(project);
+        }
+
+        @GetMapping
+        public List<Project> getAllProject(){
+            return projectRepository.findAll();
+        }
+
+        @DeleteMapping("/{id}")
+        public void deleteProject(@PathVariable Long id){
+            projectRepository.deleteById(id);
+        }
+
+        @PutMapping("/{id}")
+        public Project updateProject(@PathVariable Long id, @RequestBody Project project){
+            Project selectedProject = projectRepository.findById(id).orElseThrow(null);
+            selectedProject.setTitle(project.getTitle());
+            return projectRepository.save(selectedProject);
+
+        }
+
+        //add Employee to Project
+        @PostMapping("/{projId}/addEmployee/{empId}")
+        public Employee addEmployeeToProject(@PathVariable Long projId, @PathVariable Long empId ){
+            // find the selected employee
+            Employee selectedEmployee = employeeRepository.findById(empId).orElseThrow(null);
+            // find the selected project
+            Project selectedProject = projectRepository.findById(projId).orElseThrow(null);
+
+            //add the selected employee to selected project
+            //getProjects() -> output : List<Project>
+            selectedEmployee.getProjects().add(selectedProject);
+
+
+            // save the selected employee then return
+            return employeeRepository.save(selectedEmployee);
+        }
+    }
+
+--------------------------------------------------------------------------------------
+
+to see H2 console for the created database tables
+
+    configuration on application.properties :
+        # Enabling H2 Console
+        spring.h2.console.enabled=true
+        # Custom H2 Console URL
+        spring.h2.console.path=/h2
+
+    type on web browser : http://localhost:8080/h2
+        h2 pertains to spring.h2.console.path
+
+--------------------------------------------------------------------------------------
+
+Postman :
+
+    Add Project To Employee
+
+        POST    http://localhost:8080/api/employee/1/addProject/1   SEND
+        POST    http://localhost:8080/api/employee/1/addProject/2   SEND
+
+                {
+                    "employeeId": 1,
+                    "firstName": "first",
+                    "lastName": "last",
+                    "projects": [
+                        {
+                            "projectId": 1,
+                            "title": "project1"
+                        },
+                        {
+                            "projectId": 2,
+                            "title": "project1"
+                        }
+                    ]
+                }
+
+        POST    http://localhost:8080/api/employee/2/addProject/2   SEND
+        POST    http://localhost:8080/api/employee/2/addProject/1   SEND
+
+                {
+                    "employeeId": 2,
+                    "firstName": "first",
+                    "lastName": "last",
+                    "projects": [
+                        {
+                            "projectId": 2,
+                            "title": "project1"
+                        },
+                        {
+                            "projectId": 1,
+                            "title": "project1"
+                        }
+                    ]
+                }
+
+        GET     localhost:8080/api/employee/    SEND
+
+                [
+                    {
+                        "employeeId": 1,
+                        "firstName": "first",
+                        "lastName": "last",
+                        "projects": [
+                            {
+                                "projectId": 1,
+                                "title": "project1"
+                            },
+                            {
+                                "projectId": 2,
+                                "title": "project1"
+                            }
+                        ]
+                    },
+                    {
+                        "employeeId": 2,
+                        "firstName": "first",
+                        "lastName": "last",
+                        "projects": [
+                            {
+                                "projectId": 2,
+                                "title": "project1"
+                            },
+                            {
+                                "projectId": 1,
+                                "title": "project1"
+                            }
+                        ]
+                    }
+                ]
+
+    --------------------------------------------------------------------------------------
+
+    Add Employee To Project
+
+        POST    http://localhost:8080/api/project/1/addEmployee/1  SEND
+
+
+                {
+                    "employeeId": 1,
+                    "firstName": "first",
+                    "lastName": "last",
+                    "projects": [
+                        {
+                            "projectId": 1,
+                            "title": "project1"
+                        }
+                    ]
+                }
+
+        POST    http://localhost:8080/api/project/1/addEmployee/2   SEND
+
+                {
+                    "employeeId": 2,
+                    "firstName": "first",
+                    "lastName": "last",
+                    "projects": [
+                        {
+                            "projectId": 1,
+                            "title": "project1"
+                        }
+                    ]
+                }
+
+        POST    http://localhost:8080/api/project/2/addEmployee/1   SEND
+
+                {
+                    "employeeId": 1,
+                    "firstName": "first",
+                    "lastName": "last",
+                    "projects": [
+                        {
+                            "projectId": 1,
+                            "title": "project1"
+                        },
+                        {
+                            "projectId": 2,
+                            "title": "project1"
+                        }
+                    ]
+                }
+
+        POST    http://localhost:8080/api/project/2/addEmployee/2   SEND
+
+                {
+                    "employeeId": 2,
+                    "firstName": "first",
+                    "lastName": "last",
+                    "projects": [
+                        {
+                            "projectId": 1,
+                            "title": "project1"
+                        },
+                        {
+                            "projectId": 2,
+                            "title": "project1"
+                        }
+                    ]
+                }
+
+        GET     localhost:8080/api/employee/    SEND
+
+                [
+                    {
+                        "employeeId": 1,
+                        "firstName": "first",
+                        "lastName": "last",
+                        "projects": [
+                            {
+                                "projectId": 1,
+                                "title": "project1"
+                            },
+                            {
+                                "projectId": 2,
+                                "title": "project1"
+                            }
+                        ]
+                    },
+                    {
+                        "employeeId": 2,
+                        "firstName": "first",
+                        "lastName": "last",
+                        "projects": [
+                            {
+                                "projectId": 1,
+                                "title": "project1"
+                            },
+                            {
+                                "projectId": 2,
+                                "title": "project1"
+                            }
+                        ]
+                    }
+                ]
+
+--------------------------------------------------------------------------------------
+
+error encountered :
+
+    on intellij run console : 
+        
+        java.lang.IllegalStateException: Cannot call sendError() after the response has been committed
+
+    on Postman :
+
+        {
+        "employeeId": 1,
+        "firstName": "first",
+        "lastName": "last",
+        "projects": [
+            {
+                "projectId": 1,
+                "title": "project1",
+                "employees": [
+                    { 
+                        "employeeId": 1,
+                        "firstName": "first",
+                        "lastName": "last",
+                        "projects": [
+                            {
+                                "projectId": 1,
+                                "title": "project1",
+                                "employees": [
+                                    {
+                                        "employeeId": 1,
+                                        "firstName": "first",
+                                        "lastName": "last",
+                                        "projects": [
+                                            {
+                                                "projectId": 1,
+                                                "title": "project1",
+                                                "employees": [
+                                                    {
+                                                        "employeeId": 1,
+                                                        "firstName": "first",
+                                                        "lastName": "last",
+                                                        "projects": [
+                                                            {
+                                                                "projectId": 1,
+                                                                "title": "project1",
+                                                                "employees": [
+                                                                    {
+                                                                        "employeeId": 1,
+                                                                        "firstName": "first",
+                                                                        "lastName": "last",
+                                                                        "projects": [
+                                                                            {
+                                                                                "projectId": 1,
+                                                                                "title": "project1",
+                                                                                "employees": [
+                                                                                    {
+                                                                                        ................
+    
+        infinite recursion loop encountered
+
+    --------------------------------------------------------------------------------------
+ 
+solution : https://gigsterous.github.io/engineering/2016/09/25/spring-boot-2.html
+
+    And finally, if we are going to expose these entities via REST, we need
+    to avoid the infinite recursion in the JSON responses here as well. 
+    We’ll accomplish that by putting @JsonBackReference on one side of the relationship.
+    In this case, all responses for parties will also include people in them but not vice versa.
+
+
+    @JsonBackReference was implemented like this :
+
+        // the "projects" below pertains to the projects on Employee class with @ManyToMany annotations
+        @ManyToMany( mappedBy = "projects", cascade =  CascadeType.ALL)
+        @JsonBackReference
+        private List<Employee> employees = new ArrayList<>();
+
+--------------------------------------------------------------------------------------

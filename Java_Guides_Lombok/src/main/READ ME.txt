@@ -1,0 +1,20 @@
+SpringBoot project - https://start.spring.io/
+
+add lombok dependency
+
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+create domain/UserLombokModel
+    @Getter
+    @Setter
+    @AllArgsConstructor
+    @NoArgsConstructor
+    @ToString
+
+
+then test the constructors, toString, setter & getter on JavaGuidesLombokApplication (Main)
+    underline and red colored fonts are normal and not an error

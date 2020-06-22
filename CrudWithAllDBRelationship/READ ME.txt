@@ -1,0 +1,378 @@
+reference : https://github.com/PratikBlog92/youtube/tree/master/crud-operation/src/main/java/com/crud
+
+------------------------------------------------------------------------------------------------------------------------
+
+on application.properties,
+    #In-Memory
+    #The URL jdbc:h2:mem:test means open an in-memory database named 'test'.
+    # Data is not persisted, and lost when the last connection to the database is closed.
+    # Multiple threads can access the same database, but data is only visible within the same process.
+    spring.datasource.url=jdbc:h2:mem:testdb
+    spring.datasource.driverClassName=org.h2.Driver
+    spring.datasource.username=sa
+    spring.datasource.password=
+    spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+
+    # Enabling H2 Console
+    spring.h2.console.enabled=true
+    # Custom H2 Console URL
+    spring.h2.console.path=/h2
+
+------------------------------------------------------------------------------------------------------------------------
+
+create domain/Address class
+    @Data
+    @Table
+    @Entity
+    public class Address {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String city;
+        private String landmark;
+        private String pinCode;
+    }
+
+create domain/Hobby class
+    @Data
+    @Table
+    @Entity
+    public class Hobby {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String name;
+    }
+
+create domain/Subjects class
+    @Data
+    @Table
+    @Entity
+    public class Subjects {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String name;
+    }
+
+create domain/Student class
+    @Data
+    @Entity
+    @Table(name = "student_details")
+    public class Student {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Column(name = "student_name")
+        private String name;
+
+        private String className;
+
+        @OneToOne(cascade = CascadeType.ALL)
+        private Address address;
+
+        @OneToMany(cascade = CascadeType.ALL)
+        private List<Subjects> subjects;
+
+        @ManyToMany(cascade = CascadeType.ALL)
+        private Set<Hobby> hobbies;
+
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create repository/StudentRepository interface
+    @Repository
+    public interface StudentRepository extends JpaRepository<Student, Long> {
+    }
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+create controller/StudentController class
+    @RestController
+    public class StudentController {
+        @Autowired
+        private StudentRepository studentRepository;
+
+        @PostMapping
+        public Student save(@RequestBody Student student){
+            return studentRepository.save(student);
+        }
+
+        @GetMapping
+        public List<Student> findAllStudent(){
+            return studentRepository.findAll();
+        }
+
+        @GetMapping("/{id}")
+        public Student find(@PathVariable Long id){
+            return studentRepository.findById(id).orElseThrow(
+                    () -> new RuntimeException("Student is not present on database")
+            );
+        }
+
+        @PutMapping
+        public Student update(@RequestBody Student  student){
+            return studentRepository.save(student);
+        }
+
+        @DeleteMapping("/{id}")
+        public String delete(@PathVariable Long id){
+            Student student = studentRepository.findById(id).orElseThrow(
+                    () -> new RuntimeException("Student is not present on database")
+            );
+            studentRepository.delete(student);
+            return "Student deleted Successfully ...!";
+
+        }
+
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create config/BooleanConfig class implements AttributeConverter<Boolean, String>
+    @Converter
+    public class BooleanConfig implements AttributeConverter<Boolean, String> {
+        //underline will appear on the class name above
+        //hover then ALT + Enter then select implement override methods
+        @Override
+        public String convertToDatabaseColumn(Boolean aBoolean) {
+            if (aBoolean == null){
+                return null;
+            }
+            if (aBoolean.booleanValue()){
+                return "Y";
+            }
+            return "N";
+        }
+
+        @Override
+        public Boolean convertToEntityAttribute(String s) {
+            if (s == null){
+                return null;
+            }
+            if (s.equals("Y") || s.equals("y")){
+                return Boolean.TRUE;
+            }
+            return Boolean.FALSE;
+        }
+
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create domain/booleanTest/BooleanTest class
+    @Data
+    @Table
+    @Entity
+    public class BooleanTest {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Convert(converter = BooleanConfig.class)
+        private Boolean isPublished;
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create repository/BooleanTestRepository interface
+    @Repository
+    public interface BooleanTestRepository extends JpaRepository<BooleanTest, Long> {
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create controller/BooleanTestController class
+    @RestController
+    public class BooleanTestController {
+        @Autowired
+        private BooleanTestRepository booleanTestRepository;
+
+        @PostMapping("/boolean")
+        public BooleanTest create(BooleanTest booleanTest){
+            return booleanTestRepository.save(booleanTest);
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+Postman
+    POST        http://localhost:8080/      SEND
+    Body -> raw -> JSON
+    {
+      "name":"name1",
+      "className":"className1",
+      "address": {
+        "city": "city1",
+        "landmark":"landmark1",
+        "pinCode":"pinCode1"
+      },
+      "subjects": [
+          {
+            "name": "subject1"
+          },
+          {
+            "name": "subject2"
+          },
+          {
+            "name": "subject3"
+          }
+      ],
+      "hobbies": [
+          {
+            "name": "Singing"
+          },
+          {
+            "name": "Coding"
+          },
+          {
+            "name": "Traveling"
+          },
+          {
+            "name": "Singing"
+          },
+          {
+            "name": "Coding"
+          },
+          {
+            "name": "Traveling"
+          }
+      ]
+    }
+
+    all the fields on the Postman are based on the fields on the domain classes
+
+    Response
+    {
+        "id": 1,
+        "name": "name1",
+        "className": "className1",
+        "address": {
+            "id": 1,
+            "city": "city1",
+            "landmark": "landmark1",
+            "pinCode": "pinCode1"
+        },
+        "subjects": [
+            {
+                "id": 1,
+                "name": "subject1"
+            },
+            {
+                "id": 2,
+                "name": "subject2"
+            },
+            {
+                "id": 3,
+                "name": "subject3"
+            }
+        ],
+        "hobbies": [
+            {
+                "id": 1,
+                "name": "Singing"
+            },
+            {
+                "id": 2,
+                "name": "Coding"
+            },
+            {
+                "id": 3,
+                "name": "Traveling"
+            }
+        ]
+    }
+
+    GET         http://localhost:8080/     SEND
+    Same response for http://localhost:8080/1
+
+    [
+        {
+            "id": 1,
+            "name": "name1",
+            "className": "className1",
+            "address": {
+                "id": 1,
+                "city": "city1",
+                "landmark": "landmark1",
+                "pinCode": "pinCode1"
+            },
+            "subjects": [
+                {
+                    "id": 1,
+                    "name": "subject1"
+                },
+                {
+                    "id": 2,
+                    "name": "subject2"
+                },
+                {
+                    "id": 3,
+                    "name": "subject3"
+                }
+            ],
+            "hobbies": [
+                {
+                    "id": 2,
+                    "name": "Coding"
+                },
+                {
+                    "id": 3,
+                    "name": "Traveling"
+                },
+                {
+                    "id": 1,
+                    "name": "Singing"
+                }
+            ]
+        }
+    ]
+
+    GET         http://localhost:8080/2     SEND
+
+    {
+        "timestamp": "2020-06-09T08:36:33.463+00:00",
+        "status": 500,
+        "error": "Internal Server Error",
+        "message": "",
+        "path": "/2"
+    }
+
+    output on Run console :
+    java.lang.RuntimeException: Student is not present on database
+    	at com.example.CrudWithAllDBRelationship.controller.StudentController.lambda$find$0(StudentController.java:28) ~[classes/:na]
+    	at java.base/java.util.Optional.orElseThrow(Optional.java:401) ~[na:na]
+    	at com.example.CrudWithAllDBRelationship.controller.StudentController.find(StudentController.java:27) ~[classes/:na]
+    	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]
+    	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[na:na]
+    	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]
+    	at java.base/java.lang.reflect.Method.invoke(Method.java:567) ~[na:na]
+
+
+    DELETE          http://localhost:8080/2     SEND
+
+    {
+        "timestamp": "2020-06-09T08:37:44.517+00:00",
+        "status": 500,
+        "error": "Internal Server Error",
+        "message": "",
+        "path": "/2"
+    }
+
+    output on Run console :
+    java.lang.RuntimeException: Student is not present on database
+    	at com.example.CrudWithAllDBRelationship.controller.StudentController.lambda$delete$1(StudentController.java:41) ~[classes/:na]
+    	at java.base/java.util.Optional.orElseThrow(Optional.java:401) ~[na:na]
+    	at com.example.CrudWithAllDBRelationship.controller.StudentController.delete(StudentController.java:40) ~[classes/:na]
+    	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method) ~[na:na]
+    	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62) ~[na:na]
+    	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43) ~[na:na]
+    	at java.base/java.lang.reflect.Method.invoke(Method.java:567) ~[na:na]
+
+    DELETE          http://localhost:8080/1     SEND
+
+    Response
+    Student deleted Successfully ...!
