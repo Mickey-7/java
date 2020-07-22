@@ -1,0 +1,296 @@
+reference : https://www.javadream.in/how-to-use-multiple-database-in-single-spring-boot-application/
+
+-------------------------------------------------------------------------------------------------------
+
+dependencies : Spring Data JPA, Spring Web,
+               Spring Boot DevTools & MySQL
+
+-------------------------------------------------------------------------------------------------------
+
+1.Add required dependency in your pom.xml file.
+2.Create Two Database named database1, database2 and create a table named testing in both the databases.
+3.Define MySql property for both the database in your application.properties file.
+4.Define a configuration class and initialise jdbctemplate for both the databases.
+5.Create a Service class and Autowired both the initialize jdbctemplate in
+  that class and perform query to save data in different databases tables.
+6.Create a controller class that is used to declare an rest endPoint .
+
+
+-------------------------------------------------------------------------------------------------------
+
+<!--1.Add required dependency in your pom.xml file.-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+
+-------------------------------------------------------------------------------------------------------
+
+2. Create Two Database named database1, database2 and create a table named testing in both the databases.
+    open cmd create docker container and type below
+
+    CREATE database database1;
+    use database1;
+    CREATE TABLE testing(
+        id int(2) not null,
+        name varchar(20) default null,
+        primary key (id);
+    );
+
+    CREATE database database2;
+    use database2;
+    CREATE TABLE testing(
+        id int(2) not null,
+        name varchar(20) default null,
+        primary key (id)
+    );
+
+    -------------------------------------------------------------------------------------------------------
+    C:\Users\donat>docker ps -a
+    CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+
+    C:\Users\donat>docker run -d -e MYSQL_ROOT_PASSWORD=PASSWORD -p:3306:3306 mysql:8.0.18
+    173d703fbecbc3d81b823bac53f4f2ffb07448ee09fe84a7c8eaca265615a7aa
+
+    C:\Users\donat>docker exec -it 173 bash
+    root@173d703fbecb:/# mysql -u root -p
+    Enter password:
+    Welcome to the MySQL monitor.  Commands end with ; or \g.
+    Your MySQL connection id is 8
+    Server version: 8.0.18 MySQL Community Server - GPL
+
+    Copyright (c) 2000, 2019, Oracle and/or its affiliates. All rights reserved.
+
+    Oracle is a registered trademark of Oracle Corporation and/or its
+    affiliates. Other names may be trademarks of their respective
+    owners.
+
+    Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+    mysql> show databases;
+    +--------------------+
+    | Database           |
+    +--------------------+
+    | information_schema |
+    | mysql              |
+    | performance_schema |
+    | sys                |
+    +--------------------+
+    4 rows in set (0.00 sec)
+
+    mysql> create database database1;
+    Query OK, 1 row affected (0.01 sec)
+
+    mysql> use database1;
+    Database changed
+    mysql> CREATE TABLE `testing` (
+        ->   `id` int(2) NOT NULL,
+        ->   `name` varchar(20) DEFAULT NULL,
+        ->   PRIMARY KEY (`id`)
+        -> )
+        -> ;
+    Query OK, 0 rows affected, 1 warning (0.02 sec)
+
+    mysql> create database database2;
+    Query OK, 1 row affected (0.01 sec)
+
+    mysql> use database2;
+    Database changed
+    mysql> CREATE TABLE `testing` (
+        ->   `id` int(2) NOT NULL,
+        ->   `name` varchar(20) DEFAULT NULL,
+        ->   PRIMARY KEY (`id`)
+        -> )
+        ->  ;
+    Query OK, 0 rows affected, 1 warning (0.03 sec)
+
+    mysql> exit
+    Bye
+    root@173d703fbecb:/# exit
+    exit
+
+    C:\Users\donat>cd Documents
+
+------------------------------------------------------------------------------------------------------
+
+3.Define MySql property for both the database in your application.properties file.
+
+    #Configuration for First Database
+    database1.datasource.jdbc-url=jdbc:mysql://localhost:3306/database1
+    database1.datasource.username=root
+    database1.datasource.password=PASSWORD
+    database1.datasource.driver-class-name=com.mysql.jdbc.Driver
+
+
+    #Configuration For Second Database
+    database2.datasource.jdbc-url=jdbc:mysql://localhost:3306/database2
+    database2.datasource.username=root
+    database2.datasource.password=PASSWORD
+    database2.datasource.driver-class-name=com.mysql.jdbc.Driver
+
+-------------------------------------------------------------------------------------------------------
+
+4.Define a configuration class and initialise jdbctemplate for both the databases.
+
+    @Configuration
+    public class DatabaseConfig {
+        //******    for database 1  *******
+        @Bean(name = "datasource1")
+        @ConfigurationProperties(prefix = "database1.datasource")
+        @Primary
+        public DataSource dataSource1(){
+            return DataSourceBuilder.create().build();
+        }
+
+        @Bean(name = "db1_template")
+        public JdbcTemplate database_1_template(@Qualifier("datasource1") DataSource db1){
+            return new JdbcTemplate(db1);
+        }
+
+        //*******   for database 2  *******
+        @Bean(name = "datasource2")
+        @ConfigurationProperties(prefix = "database2.datasource")
+        public DataSource dataSource2(){
+            return DataSourceBuilder.create().build();
+        }
+
+        @Bean(name = "db2_template")
+        public JdbcTemplate database_2_template(@Qualifier("datasource2") DataSource db2){
+            return new JdbcTemplate(db2);
+        }
+
+    }
+
+-------------------------------------------------------------------------------------------------------
+
+5.Create a Service class and Autowired both the initialize jdbctemplate in
+  that class and perform query to save data in different databases tables.
+
+  @Service
+  public class DatabaseService {
+
+      private static final Logger logger = LoggerFactory.getLogger(DatabaseService.class);
+      private static final String query = "insert into testing(id,name) values(?,?)";
+
+      @Autowired
+      @Qualifier("db1_template")
+      private JdbcTemplate template_database_1;
+
+      @Autowired
+      @Qualifier("db2_template")
+      private JdbcTemplate template_database_2;
+
+      @Transactional
+      public int save(){
+          try{
+              int insertDB1Status = template_database_1.update(query, new Object[]{1,"rajput"});
+              logger.info("insertDB1Status= "+insertDB1Status);
+
+              int insertDB2Status = template_database_2.update(query, new Object[]{2,"rajput"});
+              logger.info("insertDB1Status= "+insertDB2Status);
+
+              return 1;
+          }catch (Exception e){
+              logger.error("Exception: "+e);
+              return 0;
+          }
+      }
+
+  }
+
+-------------------------------------------------------------------------------------------------------
+
+6.Create a controller class that is used to declare an rest endPoint .
+
+    @RestController
+    public class DatabaseController {
+        private static final Logger logger = LoggerFactory.getLogger(DatabaseController.class);
+
+        @Autowired
+        private DatabaseService databaseService;
+
+        @GetMapping("/")
+        public String test(){
+            try{
+                int saveStatus = databaseService.save();
+                logger.info("saveStatus= "+saveStatus);
+                if (saveStatus == 1){
+                    return "Nice Try Champ !!";
+                }else {
+                    return "Some Technical Error Please Try Again";
+                }
+            }catch (Exception e){
+                logger.error("Exception: "+ e);
+                return "Some Technical Error Please Try Again";
+            }
+        }
+
+    }
+
+-------------------------------------------------------------------------------------------------------
+
+error encountered:
+
+    org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'entityManagerFactory' defined in class path resource [org/springframework/boot/autoconfigure/orm/jpa/HibernateJpaConfiguration.class]: Bean instantiation via factory method failed; nested exception is org.springframework.beans.BeanInstantiationException: Failed to instantiate [org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean]: Factory method 'entityManagerFactory' threw exception; nested exception is java.lang.IllegalArgumentException: dataSource or dataSourceClassName or jdbcUrl is required.
+
+    solution:
+
+    on DatabaseConfig,
+
+    @ConfigurationProperties(prefix = "datasource1.datasource")
+
+    should be
+
+    @ConfigurationProperties(prefix = "database1.datasource")
+
+-------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
