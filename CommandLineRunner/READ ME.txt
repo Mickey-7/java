@@ -1,0 +1,196 @@
+reference : https://www.javadevjournal.com/spring-boot/commandlinerunner-interface-in-spring-boot/
+
+--------------------------------------------------------------------------------------------------
+
+Introduction
+    CommandLineRunner interface in Spring Boot provides an option to
+    run a specific piece of code when the application is fully started.
+
+    This interface called automatically by the Spring Boot after the initial bootstrapping of application.
+
+--------------------------------------------------------------------------------------------------
+
+1. CommandLineRunner
+
+    @Component
+    public class CustomCommandLineRunner implements CommandLineRunner {
+
+        private static  final Logger LOG = LoggerFactory.getLogger(CustomCommandLineRunner.class);
+
+        //underline will appear on class above, just hover then implement method
+        @Override
+        public void run(String... args) throws Exception {
+            LOG.info("Custom command line runner is executed with command line arguments: {}", Arrays.toString(args));
+        }
+    }
+
+    CommandLineRunner interface offers a single run method,
+    which is called just before SpringApplication.run(… ) completes.
+
+    If we run our code, following log will be visible on the server console.
+
+    "C:\Program Files\Java\jdk-13\bin\java.exe" "-javaagent:C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.3\lib\idea_rt.jar=53859:C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.3\bin" -Dfile.encoding=UTF-8 -classpath C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner\target\classes;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-web\2.3.1.RELEASE\spring-boot-starter-web-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter\2.3.1.RELEASE\spring-boot-starter-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot\2.3.1.RELEASE\spring-boot-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\2.3.1.RELEASE\spring-boot-autoconfigure-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-logging\2.3.1.RELEASE\spring-boot-starter-logging-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\ch\qos\logback\logback-classic\1.2.3\logback-classic-1.2.3.jar;C:\Users\donat\.m2\repository\ch\qos\logback\logback-core\1.2.3\logback-core-1.2.3.jar;C:\Users\donat\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.13.3\log4j-to-slf4j-2.13.3.jar;C:\Users\donat\.m2\repository\org\apache\logging\log4j\log4j-api\2.13.3\log4j-api-2.13.3.jar;C:\Users\donat\.m2\repository\org\slf4j\jul-to-slf4j\1.7.30\jul-to-slf4j-1.7.30.jar;C:\Users\donat\.m2\repository\jakarta\annotation\jakarta.annotation-api\1.3.5\jakarta.annotation-api-1.3.5.jar;C:\Users\donat\.m2\repository\org\yaml\snakeyaml\1.26\snakeyaml-1.26.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-json\2.3.1.RELEASE\spring-boot-starter-json-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.11.0\jackson-databind-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.11.0\jackson-annotations-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.11.0\jackson-core-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.11.0\jackson-datatype-jdk8-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.11.0\jackson-datatype-jsr310-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.11.0\jackson-module-parameter-names-2.11.0.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\2.3.1.RELEASE\spring-boot-starter-tomcat-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\9.0.36\tomcat-embed-core-9.0.36.jar;C:\Users\donat\.m2\repository\org\glassfish\jakarta.el\3.0.3\jakarta.el-3.0.3.jar;C:\Users\donat\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\9.0.36\tomcat-embed-websocket-9.0.36.jar;C:\Users\donat\.m2\repository\org\springframework\spring-web\5.2.7.RELEASE\spring-web-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-beans\5.2.7.RELEASE\spring-beans-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-webmvc\5.2.7.RELEASE\spring-webmvc-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-aop\5.2.7.RELEASE\spring-aop-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-context\5.2.7.RELEASE\spring-context-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-expression\5.2.7.RELEASE\spring-expression-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\slf4j\slf4j-api\1.7.30\slf4j-api-1.7.30.jar;C:\Users\donat\.m2\repository\org\springframework\spring-core\5.2.7.RELEASE\spring-core-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-jcl\5.2.7.RELEASE\spring-jcl-5.2.7.RELEASE.jar com.example.CommandLineRunner.CommandLineRunnerApplication
+
+      .   ____          _            __ _ _
+     /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+    ( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+     \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+      '  |____| .__|_| |_|_| |_\__, | / / / /
+     =========|_|==============|___/=/_/_/_/
+     :: Spring Boot ::        (v2.3.1.RELEASE)
+
+    2020-07-23 19:54:00.471  INFO 14920 --- [           main] c.e.C.CommandLineRunnerApplication       : Starting CommandLineRunnerApplication on DESKTOP-ADOT1IA with PID 14920 (C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner\target\classes started by donat in C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner)
+    2020-07-23 19:54:00.474  INFO 14920 --- [           main] c.e.C.CommandLineRunnerApplication       : No active profile set, falling back to default profiles: default
+    2020-07-23 19:54:01.645  INFO 14920 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8080 (http)
+    2020-07-23 19:54:01.657  INFO 14920 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+    2020-07-23 19:54:01.658  INFO 14920 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.36]
+    2020-07-23 19:54:01.732  INFO 14920 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+    2020-07-23 19:54:01.732  INFO 14920 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1213 ms
+    2020-07-23 19:54:01.872  INFO 14920 --- [           main] o.s.s.concurrent.ThreadPoolTaskExecutor  : Initializing ExecutorService 'applicationTaskExecutor'
+    2020-07-23 19:54:02.233  INFO 14920 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+    2020-07-23 19:54:02.242  INFO 14920 --- [           main] c.e.C.CommandLineRunnerApplication       : Started CommandLineRunnerApplication in 2.123 seconds (JVM running for 2.457)
+    2020-07-23 19:54:02.243  INFO 14920 --- [           main] c.e.C.c.CustomCommandLineRunner          : Custom command line runner is executed with command line arguments: []
+
+    Process finished with exit code -1
+
+    The CommandLineRunner interfaces provide access to application arguments as a simple string array.
+
+--------------------------------------------------------------------------------------------------
+
+2. CommandLineRunner Ordering
+
+    We can use any number of CommandLineRunner in our application.
+    In case we like to call our CommandLineRunner in a specific order, we have the following two options.
+
+    Implement org.springframework.core.Ordered interface.
+    Use @Order annotation.
+
+--------------------------------------------------------------------------------------------------
+
+2.1 Ordering using Ordered interface
+    Implement Ordered interface and getOrder() method to provide priority for the custom runner.
+
+    @Component
+    public class CustomCommandLineOrdering implements CommandLineRunner, Ordered {
+
+        private static final Logger LOG = LoggerFactory.getLogger(CustomCommandLineOrdering.class);
+
+        //underline will appear on class above, just hover then implement method
+        @Override
+        public void run(String...args) throws Exception {
+            LOG.info("Custom command line ordering is executed with command line arguments: {}", Arrays.toString(args));
+        }
+
+        @Override
+        public int getOrder() {
+            return 2;
+        }
+    }
+
+    "C:\Program Files\Java\jdk-13\bin\java.exe" "-javaagent:C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.3\lib\idea_rt.jar=53969:C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.3\bin" -Dfile.encoding=UTF-8 -classpath C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner\target\classes;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-web\2.3.1.RELEASE\spring-boot-starter-web-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter\2.3.1.RELEASE\spring-boot-starter-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot\2.3.1.RELEASE\spring-boot-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\2.3.1.RELEASE\spring-boot-autoconfigure-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-logging\2.3.1.RELEASE\spring-boot-starter-logging-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\ch\qos\logback\logback-classic\1.2.3\logback-classic-1.2.3.jar;C:\Users\donat\.m2\repository\ch\qos\logback\logback-core\1.2.3\logback-core-1.2.3.jar;C:\Users\donat\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.13.3\log4j-to-slf4j-2.13.3.jar;C:\Users\donat\.m2\repository\org\apache\logging\log4j\log4j-api\2.13.3\log4j-api-2.13.3.jar;C:\Users\donat\.m2\repository\org\slf4j\jul-to-slf4j\1.7.30\jul-to-slf4j-1.7.30.jar;C:\Users\donat\.m2\repository\jakarta\annotation\jakarta.annotation-api\1.3.5\jakarta.annotation-api-1.3.5.jar;C:\Users\donat\.m2\repository\org\yaml\snakeyaml\1.26\snakeyaml-1.26.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-json\2.3.1.RELEASE\spring-boot-starter-json-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.11.0\jackson-databind-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.11.0\jackson-annotations-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.11.0\jackson-core-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.11.0\jackson-datatype-jdk8-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.11.0\jackson-datatype-jsr310-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.11.0\jackson-module-parameter-names-2.11.0.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\2.3.1.RELEASE\spring-boot-starter-tomcat-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\9.0.36\tomcat-embed-core-9.0.36.jar;C:\Users\donat\.m2\repository\org\glassfish\jakarta.el\3.0.3\jakarta.el-3.0.3.jar;C:\Users\donat\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\9.0.36\tomcat-embed-websocket-9.0.36.jar;C:\Users\donat\.m2\repository\org\springframework\spring-web\5.2.7.RELEASE\spring-web-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-beans\5.2.7.RELEASE\spring-beans-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-webmvc\5.2.7.RELEASE\spring-webmvc-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-aop\5.2.7.RELEASE\spring-aop-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-context\5.2.7.RELEASE\spring-context-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-expression\5.2.7.RELEASE\spring-expression-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\slf4j\slf4j-api\1.7.30\slf4j-api-1.7.30.jar;C:\Users\donat\.m2\repository\org\springframework\spring-core\5.2.7.RELEASE\spring-core-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-jcl\5.2.7.RELEASE\spring-jcl-5.2.7.RELEASE.jar com.example.CommandLineRunner.CommandLineRunnerApplication
+
+      .   ____          _            __ _ _
+     /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+    ( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+     \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+      '  |____| .__|_| |_|_| |_\__, | / / / /
+     =========|_|==============|___/=/_/_/_/
+     :: Spring Boot ::        (v2.3.1.RELEASE)
+
+    2020-07-23 20:07:10.020  INFO 13308 --- [           main] c.e.C.CommandLineRunnerApplication       : Starting CommandLineRunnerApplication on DESKTOP-ADOT1IA with PID 13308 (C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner\target\classes started by donat in C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner)
+    2020-07-23 20:07:10.023  INFO 13308 --- [           main] c.e.C.CommandLineRunnerApplication       : No active profile set, falling back to default profiles: default
+    2020-07-23 20:07:11.240  INFO 13308 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8080 (http)
+    2020-07-23 20:07:11.253  INFO 13308 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+    2020-07-23 20:07:11.253  INFO 13308 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.36]
+    2020-07-23 20:07:11.327  INFO 13308 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+    2020-07-23 20:07:11.327  INFO 13308 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1261 ms
+    2020-07-23 20:07:11.468  INFO 13308 --- [           main] o.s.s.concurrent.ThreadPoolTaskExecutor  : Initializing ExecutorService 'applicationTaskExecutor'
+    2020-07-23 20:07:11.820  INFO 13308 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+    2020-07-23 20:07:11.829  INFO 13308 --- [           main] c.e.C.CommandLineRunnerApplication       : Started CommandLineRunnerApplication in 2.126 seconds (JVM running for 2.471)
+    2020-07-23 20:07:11.830  INFO 13308 --- [           main] c.e.C.c.CustomCommandLineOrdering        : Custom command line ordering is executed with command line arguments: []
+    2020-07-23 20:07:11.831  INFO 13308 --- [           main] c.e.C.c.CustomCommandLineRunner          : Custom command line runner is executed with command line arguments: []
+
+    Process finished with exit code -1
+
+--------------------------------------------------------------------------------------------------
+
+2.2 Ordering using @Order annotation
+    Implement @Order annotation to provide priority for the custom runner.
+
+    @Order(1)
+    @Component
+    public class CustomCommandLineOrdering2 implements CommandLineRunner {
+
+        private static final Logger LOG = LoggerFactory.getLogger(CustomCommandLineOrdering2.class);
+
+        //underline will appear on class above, just hover then implement method
+        @Override
+        public void run(String...args) throws Exception {
+            LOG.info("Calling second command line runner with arguments {}", Arrays.toString(args));
+        }
+    }
+
+    If we run our application, following output is visible on the server console
+
+    "C:\Program Files\Java\jdk-13\bin\java.exe" "-javaagent:C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.3\lib\idea_rt.jar=54046:C:\Program Files\JetBrains\IntelliJ IDEA Community Edition 2019.2.3\bin" -Dfile.encoding=UTF-8 -classpath C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner\target\classes;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-web\2.3.1.RELEASE\spring-boot-starter-web-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter\2.3.1.RELEASE\spring-boot-starter-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot\2.3.1.RELEASE\spring-boot-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-autoconfigure\2.3.1.RELEASE\spring-boot-autoconfigure-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-logging\2.3.1.RELEASE\spring-boot-starter-logging-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\ch\qos\logback\logback-classic\1.2.3\logback-classic-1.2.3.jar;C:\Users\donat\.m2\repository\ch\qos\logback\logback-core\1.2.3\logback-core-1.2.3.jar;C:\Users\donat\.m2\repository\org\apache\logging\log4j\log4j-to-slf4j\2.13.3\log4j-to-slf4j-2.13.3.jar;C:\Users\donat\.m2\repository\org\apache\logging\log4j\log4j-api\2.13.3\log4j-api-2.13.3.jar;C:\Users\donat\.m2\repository\org\slf4j\jul-to-slf4j\1.7.30\jul-to-slf4j-1.7.30.jar;C:\Users\donat\.m2\repository\jakarta\annotation\jakarta.annotation-api\1.3.5\jakarta.annotation-api-1.3.5.jar;C:\Users\donat\.m2\repository\org\yaml\snakeyaml\1.26\snakeyaml-1.26.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-json\2.3.1.RELEASE\spring-boot-starter-json-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-databind\2.11.0\jackson-databind-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-annotations\2.11.0\jackson-annotations-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\core\jackson-core\2.11.0\jackson-core-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jdk8\2.11.0\jackson-datatype-jdk8-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\datatype\jackson-datatype-jsr310\2.11.0\jackson-datatype-jsr310-2.11.0.jar;C:\Users\donat\.m2\repository\com\fasterxml\jackson\module\jackson-module-parameter-names\2.11.0\jackson-module-parameter-names-2.11.0.jar;C:\Users\donat\.m2\repository\org\springframework\boot\spring-boot-starter-tomcat\2.3.1.RELEASE\spring-boot-starter-tomcat-2.3.1.RELEASE.jar;C:\Users\donat\.m2\repository\org\apache\tomcat\embed\tomcat-embed-core\9.0.36\tomcat-embed-core-9.0.36.jar;C:\Users\donat\.m2\repository\org\glassfish\jakarta.el\3.0.3\jakarta.el-3.0.3.jar;C:\Users\donat\.m2\repository\org\apache\tomcat\embed\tomcat-embed-websocket\9.0.36\tomcat-embed-websocket-9.0.36.jar;C:\Users\donat\.m2\repository\org\springframework\spring-web\5.2.7.RELEASE\spring-web-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-beans\5.2.7.RELEASE\spring-beans-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-webmvc\5.2.7.RELEASE\spring-webmvc-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-aop\5.2.7.RELEASE\spring-aop-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-context\5.2.7.RELEASE\spring-context-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-expression\5.2.7.RELEASE\spring-expression-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\slf4j\slf4j-api\1.7.30\slf4j-api-1.7.30.jar;C:\Users\donat\.m2\repository\org\springframework\spring-core\5.2.7.RELEASE\spring-core-5.2.7.RELEASE.jar;C:\Users\donat\.m2\repository\org\springframework\spring-jcl\5.2.7.RELEASE\spring-jcl-5.2.7.RELEASE.jar com.example.CommandLineRunner.CommandLineRunnerApplication
+
+      .   ____          _            __ _ _
+     /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+    ( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+     \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+      '  |____| .__|_| |_|_| |_\__, | / / / /
+     =========|_|==============|___/=/_/_/_/
+     :: Spring Boot ::        (v2.3.1.RELEASE)
+
+    2020-07-23 20:13:46.568  INFO 12096 --- [           main] c.e.C.CommandLineRunnerApplication       : Starting CommandLineRunnerApplication on DESKTOP-ADOT1IA with PID 12096 (C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner\target\classes started by donat in C:\Users\donat\Downloads\CommandLineRunner\CommandLineRunner)
+    2020-07-23 20:13:46.571  INFO 12096 --- [           main] c.e.C.CommandLineRunnerApplication       : No active profile set, falling back to default profiles: default
+    2020-07-23 20:13:47.726  INFO 12096 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8080 (http)
+    2020-07-23 20:13:47.738  INFO 12096 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+    2020-07-23 20:13:47.738  INFO 12096 --- [           main] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.36]
+    2020-07-23 20:13:47.810  INFO 12096 --- [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+    2020-07-23 20:13:47.810  INFO 12096 --- [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1198 ms
+    2020-07-23 20:13:47.958  INFO 12096 --- [           main] o.s.s.concurrent.ThreadPoolTaskExecutor  : Initializing ExecutorService 'applicationTaskExecutor'
+    2020-07-23 20:13:48.327  INFO 12096 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+    2020-07-23 20:13:48.335  INFO 12096 --- [           main] c.e.C.CommandLineRunnerApplication       : Started CommandLineRunnerApplication in 2.076 seconds (JVM running for 2.419)
+    2020-07-23 20:13:48.336  INFO 12096 --- [           main] c.e.C.c.CustomCommandLineOrdering2       : Calling second command line runner with arguments []
+    2020-07-23 20:13:48.337  INFO 12096 --- [           main] c.e.C.c.CustomCommandLineOrdering        : Custom command line ordering is executed with command line arguments: []
+    2020-07-23 20:13:48.338  INFO 12096 --- [           main] c.e.C.c.CustomCommandLineRunner          : Custom command line runner is executed with command line arguments: []
+
+    Process finished with exit code -1
+
+    NOTE : The lower the number, the higher the precedence
+
+--------------------------------------------------------------------------------------------------
+
+3. When to Use CommandLineRunner
+    CommandLineRunner interface in Spring Boot application is an important tool.
+    Here are some of the common use cases for this interface.
+
+        Preparing application initial data.
+        Source data from external services.
+
+
+    Summary
+    In this short post, we discussed the CommandLineRunner interface.
+    We covered what are the use cases for the interface and how to create
+    and order multiple interfaces based on the application requirements.
+
+--------------------------------------------------------------------------------------------------
+
+error encountered:
+
+    org.springframework.beans.factory.BeanDefinitionStoreException: Failed to parse configuration class [com.example.CommandLineRunner.CommandLineRunnerApplication]; nested exception is org.springframework.context.annotation.ConflictingBeanDefinitionException: Annotation-specified bean name 'customCommandLineRunner' for bean class [com.example.CommandLineRunner.commandLineRunner.CustomCommandLineRunner] conflicts with existing, non-compatible bean definition of same name and class [com.example.CommandLineRunner.commandLineOrdering.CustomCommandLineRunner]
+
+    reason: same class name
+
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+
+
+
+
+
