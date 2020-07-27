@@ -1,0 +1,152 @@
+reference : https://www.youtube.com/watch?v=fiUhVldkrl4&feature=youtu.be
+
+------------------------------------------------------------------------------------------------------------------------
+
+added dependencies :
+    Spring Web ---|
+    JPA           |---> from start.spring.io
+    H2            |
+    Lombok     ---|
+    ModelMapper from MVN repository
+
+------------------------------------------------------------------------------------------------------------------------
+
+on application.properties,
+    setup H2 database
+
+        #In-Memory
+        #The URL jdbc:h2:mem:test means open an in-memory database named 'test'.
+        # Data is not persisted, and lost when the last connection to the database is closed.
+        # Multiple threads can access the same database, but data is only visible within the same process.
+        spring.datasource.url=jdbc:h2:mem:testdb
+        spring.datasource.driverClassName=org.h2.Driver
+        spring.datasource.username=sa
+        spring.datasource.password=
+        spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+
+        # Enabling H2 Console
+        spring.h2.console.enabled=true
+        # Custom H2 Console URL
+        spring.h2.console.path=/h2
+
+------------------------------------------------------------------------------------------------------------------------
+
+create domain/Student class,
+    @Data
+    @Table
+    @Entity
+    public class Student {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Temporal(TemporalType.TIMESTAMP)
+        @Column(updatable = false)
+        private Date createdDate;
+
+        @Temporal(TemporalType.TIMESTAMP)
+        private Date updatedDate;
+
+        private String name;
+        private String username;
+        private String password;
+
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create dto/StudentDto class,
+    @Data
+    public class StudentDto {
+        private Long id;
+        private String name;
+        private String username;
+        private String password;
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create converter/StudentConverter class
+    @Component
+    public class StudentConverter {
+        //Student to StudentDto
+        public StudentDto entityToDto(Student student){
+            StudentDto studentDto = new StudentDto();
+            studentDto.setId(student.getId());
+            studentDto.setName(student.getName());
+            studentDto.setUsername(student.getUsername());
+            studentDto.setPassword(student.getPassword())
+            return studentDto;
+        }
+        public List<StudentDto> entityToDto(List<Student> students){
+            //invoking the above entityToDto(Student student) method
+            return students.stream().map( x -> entityToDto(x)).collect(Collectors.toList());
+        }
+
+        //StudentDto to Student
+        public Student dtoToEntity(StudentDto studentDto){
+            Student student = new Student();
+            student.setId(studentDto.getId());
+            student.setName(studentDto.getName());
+            student.setUsername(studentDto.getUsername());
+            student.setPassword(studentDto.getPassword());
+            return student;
+        }
+        public List<Student> dtoToEntity(List<StudentDto> studentDtos){
+            //invoking the above dtoToEntity(List<StudentDto> studentDtos) method
+            return studentDtos.stream().map( x -> dtoToEntity(x)).collect(Collectors.toList());
+        }
+
+    }
+
+    it is okay to have red and underline on code - when using lombok
+------------------------------------------------------------------------------------------------------------------------
+
+create StudentRepository,
+    @Repository
+    public interface StudentRepository extends JpaRepository<Student,Long> {
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create controller,
+    @RestController
+    public class StudentController {
+        //invoke repository & converter
+        @Autowired
+        StudentRepository studentRepository;
+        @Autowired
+        StudentConverter studentConverter;
+
+        @GetMapping
+        public List<StudentDto> findAll(){
+            //use .findAll() on repository and set it to List<Student>
+            List<Student> students = studentRepository.findAll();
+            //use converter and invoke the students above
+            return studentConverter.entityToDto(students);
+        }
+
+        @PostMapping
+        public StudentDto save(@RequestBody StudentDto studentDto){
+            //create Student and set it to converter
+            Student student = studentConverter.dtoToEntity(studentDto);
+            //use repository to save the student above
+            student = studentRepository.save(student);
+            //use converter and invoke the student above
+            return studentConverter.entityToDto(student);
+        }
+
+        @GetMapping("/{id}")
+        public StudentDto findById(@PathVariable Long id){
+            //create Student and set it to repository with id
+            Student student = studentRepository.findById(id).orElse(null);
+            //use converter and invoke the student above
+            return studentConverter.entityToDto(student);
+        }
+
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+Postman for testing and localhost:8080/h2 for database (SELECT * FROM STUDENT) interface
+
