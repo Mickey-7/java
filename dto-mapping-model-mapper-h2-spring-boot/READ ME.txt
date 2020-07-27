@@ -1,0 +1,367 @@
+reference : https://stackabuse.com/data-transfer-object-pattern-in-java-implementation-and-mapping/
+
+------------------------------------------------------------------------------------------------------------
+
+dependency : H2, Spring Data JPA & Spring Web -- then
+             ModelMapper : https://mvnrepository.com/artifact/org.modelmapper/modelmapper/2.3.8
+
+------------------------------------------------------------------------------------------------------------
+
+create domain/Location class
+
+    @Entity
+    public class Location {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private double lat;
+        private double lng;
+        private String place;
+        private String description;
+
+        // setter and getter
+        // constructors
+        // tostring()
+    }
+
+------------------------------------------------------------------------------------------------------------
+
+create domain/User class
+
+    @Entity
+    public class User {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String username;
+        private String firstName;
+        private String lastName;
+        private String password;
+        private String email;
+
+        @ManyToMany(fetch = FetchType.EAGER)
+        @JoinColumn(name = "location_id")
+        private Location location;
+
+            // setter and getter
+            // constructors
+            // tostring()
+    }
+
+------------------------------------------------------------------------------------------------------------
+
+create dto/UserLocation class
+
+    Let's make a Data Transfer Object to only transfer the required information.
+        And while we're at it, let's aggregate the User and Location information,
+        so that the data is transferred together:
+
+        public class UserLocationDTO {
+            private Long userId;
+            private String username;
+            private double lat;
+            private double lng;
+            private String place;
+
+            // setter & getter
+        }
+
+------------------------------------------------------------------------------------------------------------
+
+create repository for User & Location
+    @Repository
+    public interface UserRepository extends JpaRepository<User, Long> {
+    }
+
+    @Repository
+    public interface LocationRepository extends JpaRepository<Location, Long> {
+    }
+
+------------------------------------------------------------------------------------------------------------
+
+create service/MapService class
+    Upon retrieving a list of Users, we directly convert them,
+    alongside their Location information to UserLocationDTO objects.
+    When calling this service, we'll retrieve this list of DTOs.
+
+    @Service
+    public class MapService {
+        @Autowired
+        private UserRepository userRepository;
+
+        private UserLocationDTO convertToUserLocationDTO(User user){
+            UserLocationDTO userLocationDTO = new UserLocationDTO();
+            userLocationDTO.setUserId(user.getId());
+            userLocationDTO.setUsername(user.getUsername());
+            // create location object the set to user.getLocation()
+            // link between user and location
+            Location location = user.getLocation();
+            userLocationDTO.setLat(location.getLat());
+            userLocationDTO.setLng(location.getLng());
+            userLocationDTO.setPlace(location.getPlace());
+            return userLocationDTO;
+        }
+
+        public List<UserLocationDTO> getAllUserLocation(){
+            return userRepository
+                        .findAll()
+                        .stream()
+                        .map( user -> convertToUserLocationDTO(user))
+                        .collect(Collectors.toList());
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------
+
+create controller/MapController class
+
+    @RestController
+    public class MapController {
+        @Autowired
+        private MapService mapService;
+
+        @GetMapping()
+        public List<UserLocationDTO> getAllUsersLocation(){
+            return mapService.getAllUserLocation();
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------
+
+error encountered :
+
+        2020-06-22 01:13:58.284  WARN 5096 --- [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'userRepository' defined in com.example.dtomappingh2springboot.repository.UserRepository defined in @EnableJpaRepositories declared on JpaRepositoriesRegistrar.EnableJpaRepositoriesConfiguration: Cannot resolve reference to bean 'jpaMappingContext' while setting bean property 'mappingContext'; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'jpaMappingContext': Invocation of init method failed; nested exception is org.hibernate.AnnotationException: Illegal attempt to map a non collection as a @OneToMany, @ManyToMany or @CollectionOfElements: com.example.dtomappingh2springboot.domain.User.location
+        2020-06-22 01:13:58.286  INFO 5096 --- [           main] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+        2020-06-22 01:13:58.286  WARN 5096 --- [           main] o.s.b.f.support.DisposableBeanAdapter    : Invocation of destroy method failed on bean with name 'entityManagerFactory': org.hibernate.AnnotationException: Illegal attempt to map a non collection as a @OneToMany, @ManyToMany or @CollectionOfElements: com.example.dtomappingh2springboot.domain.User.location
+        2020-06-22 01:13:58.286  INFO 5096 --- [           main] o.s.s.concurrent.ThreadPoolTaskExecutor  : Shutting down ExecutorService 'applicationTaskExecutor'
+        2020-06-22 01:13:58.287  INFO 5096 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+        2020-06-22 01:13:58.291  INFO 5096 --- [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+        2020-06-22 01:14:00.528  INFO 5096 --- [           main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+        2020-06-22 01:14:00.535 ERROR 5096 --- [o-8080-Acceptor] org.apache.tomcat.util.net.Acceptor      : Socket accept failed
+
+        java.nio.channels.AsynchronousCloseException: null
+            at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:202) ~[na:na]
+            at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:261) ~[na:na]
+            at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:284) ~[na:na]
+            at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:469) ~[tomcat-embed-core-9.0.36.jar:9.0.36]
+            at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71) ~[tomcat-embed-core-9.0.36.jar:9.0.36]
+            at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:95) ~[tomcat-embed-core-9.0.36.jar:9.0.36]
+            at java.base/java.lang.Thread.run(Thread.java:830) ~[na:na]
+
+        2020-06-22 01:14:00.548  INFO 5096 --- [           main] ConditionEvaluationReportLoggingListener :
+
+        Error starting ApplicationContext. To display the conditions report re-run your application with 'debug' enabled.
+        2020-06-22 01:14:00.550 ERROR 5096 --- [           main] o.s.boot.SpringApplication               : Application run failed
+
+        org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'userRepository' defined in com.example.dtomappingh2springboot.repository.UserRepository defined in @EnableJpaRepositories declared on JpaRepositoriesRegistrar.EnableJpaRepositoriesConfiguration: Cannot resolve reference to bean 'jpaMappingContext' while setting bean property 'mappingContext'; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'jpaMappingContext': Invocation of init method failed; nested exception is org.hibernate.AnnotationException: Illegal attempt to map a non collection as a @OneToMany, @ManyToMany or @CollectionOfElements: com.example.dtomappingh2springboot.domain.User.location
+
+    solution :
+
+        on domain/User class
+            it should be
+            @ManyToOne instead of @ManyToMany
+
+------------------------------------------------------------------------------------------------------------
+
+error encountered:
+
+    2020-07-26 13:31:10.454  INFO 10744 --- [         task-1] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+    Exception in thread "task-2" org.springframework.jdbc.datasource.init.ScriptStatementFailedException: Failed to execute SQL script statement #1 of URL [file:/C:/Users/donat/Downloads/dto-mapping-h2-spring-boot/target/classes/data.sql]: DROP TABLE if EXISTS location DROP TABLE if EXISTS user CREATE TABLE location( id int auto_increment primary key, lat double, lng double, place varchar_ignorecase(50) not null, description varchar_ignorecase(50) not null ); nested exception is org.h2.jdbc.JdbcSQLSyntaxErrorException: Syntax error in SQL statement "DROP TABLE IF EXISTS LOCATION DROP[*] TABLE IF EXISTS USER CREATE TABLE LOCATION( ID INT AUTO_INCREMENT PRIMARY KEY, LAT DOUBLE, LNG DOUBLE, PLACE VARCHAR_IGNORECASE(50) NOT NULL, DESCRIPTION VARCHAR_IGNORECASE(50) NOT NULL )"; SQL statement:
+    DROP TABLE if EXISTS location DROP TABLE if EXISTS user CREATE TABLE location( id int auto_increment primary key, lat double, lng double, place varchar_ignorecase(50) not null, description varchar_ignorecase(50) not null ) [42000-200]
+
+    solution:
+
+    must create separate file for populating the create db.
+
+    create create-schema.sql under resources folder
+
+    DROP TABLE if EXISTS location
+    DROP TABLE if EXISTS user
+
+    CREATE TABLE location(
+        id int auto_increment primary key,
+        lat double,
+        lng double,
+        place varchar_ignorecase(50) not null,
+        description varchar_ignorecase(50) not null
+    );
+
+    CREATE TABLE user(
+        id int auto_increment primary key,
+        username varchar_ignorecase(50),
+        first_name varchar_ignorecase(50),
+        last_name varchar_ignorecase(50),
+        password varchar_ignorecase(50) not null,
+        email varchar_ignorecase(50) not null
+    )
+
+    create data.sql for populating the created database
+
+    INSERT INTO location(id, lat, lng, place, description)
+        values (1, 49.8, 24.03 ,'Lviv', 'Lviv is one of the largest and the most beautiful cities of Ukraine.');
+
+    INSERT INTO user(id, username, first_name, last_name, password, location_id)
+        values (1, 'Romeo', 'Romeo', 'Montagues' ,'gjt6lf2nt5os', 1);
+
+    INSERT INTO user(id, username, first_name, last_name, password, location_id)
+        values (2, 'Juliet', 'Juliet', 'Capulets' ,'s894mjg03hd0', 1);
+
+-----------------------------------------------------------------------------------------------------------
+
+H2 console:
+    type on web browser:
+        http://localhost:8080/h2
+    then press Connect
+
+    click on created LOCATION table on left side of the console
+    then click Run button
+
+    output:
+
+    SELECT * FROM LOCATION;
+    ID  	DESCRIPTION  	                                                        LAT  	LNG  	PLACE
+    1	    Lviv is one of the largest and the most beautiful cities of Ukraine.	49.8	24.03	Lviv
+
+    change LOCATION to USER
+    then click Run button
+
+    SELECT * FROM USER;
+    ID  	EMAIL  	FIRST_NAME  	LAST_NAME  	PASSWORD  	    USERNAME  	LOCATION_ID
+    1	    null	Romeo	        Montagues	gjt6lf2nt5os	Romeo	    1
+    2	    null	Juliet	        Capulets	s894mjg03hd0	Juliet	    1
+
+-----------------------------------------------------------------------------------------------------------
+
+Postman :
+
+    GET     http://localhost:8080/          SEND
+
+    [
+        {
+            "userId": 1,
+            "username": "Romeo",
+            "lat": 49.8,
+            "lng": 24.03,
+            "place": "Lviv"
+        },
+        {
+            "userId": 2,
+            "username": "Juliet",
+            "lat": 49.8,
+            "lng": 24.03,
+            "place": "Lviv"
+        }
+    ]
+
+    Great! A list of our users is returned with only the required information both transferred and displayed.
+
+    We've written a mapping method within our MapService that aggregates
+    and converts data, though, this process can easily be automated.
+
+----------------------------------------------------------------------------------------------------------
+
+Mapping with ModelMapper
+    ModelMapper is a great mapping library that allows us to map between models and DTOs.
+    It makes object mapping easy, by automatically determining how one object model maps to another.
+
+    To add it to a Maven project, we'd add the dependency:
+
+    		<!-- https://mvnrepository.com/artifact/org.modelmapper/modelmapper -->
+    		<dependency>
+    			<groupId>org.modelmapper</groupId>
+    			<artifactId>modelmapper</artifactId>
+    			<version>2.3.8</version>
+    		</dependency>
+
+----------------------------------------------------------------------------------------------------------
+
+Let's update our previous example with the ModelMapper library:
+    Now, instead of the entire assignment process we've had to do before - we just map() a user to the UserLocationDTO.
+
+    The method will flatten the properties of User within a UserLocationDTO
+    and both the user information and the location will be present.
+
+    @Service
+    public class MapService extends ModelMapper{
+        @Autowired
+        private UserRepository userRepository;
+
+        //---------------for manual mapping----------------------//
+
+    //    private UserLocationDTO convertToUserLocationDTO(User user){
+    //        UserLocationDTO userLocationDTO = new UserLocationDTO();
+    //        userLocationDTO.setUserId(user.getId());
+    //        userLocationDTO.setUsername(user.getUsername());
+    //        // create location object the set to user.getLocation()
+    //        // link between user and location
+    //        Location location = user.getLocation();
+    //        userLocationDTO.setLat(location.getLat());
+    //        userLocationDTO.setLng(location.getLng());
+    //        userLocationDTO.setPlace(location.getPlace());
+    //        return userLocationDTO;
+    //    }
+    //
+    //    public List<UserLocationDTO> getAllUserLocation(){
+    //        return userRepository
+    //                    .findAll()
+    //                    .stream()
+    //                    .map( user -> convertToUserLocationDTO(user))
+    //                    .collect(Collectors.toList());
+    //    }
+
+        //----------------------------using ModelMapper------------------------------//
+
+        @Autowired
+        private ModelMapper modelMapper;
+
+        private UserLocationDTO convertToUserLocation(User user) {
+            modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.LOOSE);
+            UserLocationDTO userLocationDTO = modelMapper.map(user, UserLocationDTO.class);
+            return userLocationDTO;
+
+        }
+
+        public List<UserLocationDTO> getAllUserLocation(){
+            return userRepository.findAll()
+                    .stream()
+                    .map(user -> convertToUserLocation(user))
+                    .collect(Collectors.toList());
+        }
+    }
+
+    Note: When working with objects as properties, like our Location is a property of User,
+          the standard matcher of the library may not be able to match all the properties.
+
+    We've set the matching strategy to LOOSE to make it easier for the library to locate and match properties.
+
+    Note: we extends ModelMapper
+
+----------------------------------------------------------------------------------------------------------
+
+error encountered:
+    ***************************
+    APPLICATION FAILED TO START
+    ***************************
+
+    Description:
+
+    Field modelMapper in com.example.dtomappingh2springboot.service.MapService required a bean of type 'org.modelmapper.ModelMapper' that could not be found.
+
+    The injection point has the following annotations:
+    	- @org.springframework.beans.factory.annotation.Autowired(required=true)
+
+
+    Action:
+
+    Consider defining a bean of type 'org.modelmapper.ModelMapper' in your configuration.
+
+
+    Process finished with exit code 1
+
+    solution:
+
+    https://stackoverflow.com/questions/39002649/modelmapper-converter-not-working
+
+        need to extends ModelMapper on the MapService class
+
+----------------------------------------------------------------------------------------------------------
