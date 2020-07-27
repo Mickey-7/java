@@ -1,0 +1,291 @@
+reference : https://github.com/PratikBlog92/youtube/tree/master/ObjectMapperDemo
+
+------------------------------------------------------------------------------------------------------------------------
+
+dependencies :
+    JPA, Lombok, Spring Web, H2
+
+------------------------------------------------------------------------------------------------------------------------
+
+on application.properties,
+    #In-Memory
+    #The URL jdbc:h2:mem:test means open an in-memory database named 'test'.
+    # Data is not persisted, and lost when the last connection to the database is closed.
+    # Multiple threads can access the same database, but data is only visible within the same process.
+    spring.datasource.url=jdbc:h2:mem:testdb
+    spring.datasource.driverClassName=org.h2.Driver
+    spring.datasource.username=sa
+    spring.datasource.password=
+    spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+
+    # Enabling H2 Console
+    spring.h2.console.enabled=true
+    # Custom H2 Console URL
+    spring.h2.console.path=/h2
+
+------------------------------------------------------------------------------------------------------------------------
+
+create domain/Address class
+    @Data
+    @Table
+    @Entity
+    public class Address {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String city;
+    }
+
+create domain/Hobby class
+    @Entity
+    @Table
+    @Data
+    public class Hobby
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String hobby;
+    }
+
+create domain/Student class
+    @Data
+    @Table
+    @Entity
+    public class Student {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String name;
+        private String username;
+        private String password;
+
+        @OneToOne(cascade = CascadeType.ALL)
+        private Address address;
+
+        @OneToMany(cascade = CascadeType.ALL)
+        private List<Hobby> hobbies;
+
+    }
+
+create domain/mixin/StudentIgnoreMixin class
+    public abstract class StudentIgnoreMixin {
+
+        @JsonIgnore
+        public abstract String getPassword();
+
+        @JsonIgnore
+        public abstract List<Address> getAddress();
+
+        @JsonIgnore
+        public abstract List<Hobby> getHobbies();
+
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create repository/StudentRepository interface
+    @Repository
+    public interface StudentRepository extends JpaRepository<Student, Long> {
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create startup/StartupUtility class implements CommandLineRunner
+    @Component
+    @Log
+    public class StartupUtility implements CommandLineRunner {
+        @Value("${demo.json.string}")
+        private String json;
+        @Autowired
+        private StudentRepository studentRepository;
+
+        //underline will appear on above class name when implemented CommandLineRunner,
+        //just ALT + Enter on i, then select implement override method
+        @Override
+        public void run(String... args) throws Exception {
+            //instantiate blank ObjectMapper
+            ObjectMapper mapper = new ObjectMapper();
+            //.configure(Feature f, Boolean b) -> output : ObjectMapper
+            mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+            Student student = mapper.readValue(json, Student.class);
+            Student savedStudent = studentRepository.save(student);
+
+            //notice how we use log directly-- this is due to lombok
+            log.info("Student info "+savedStudent.toString());
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+create controller/StudentController class
+    @RestController
+    public class StudentController {
+        @Autowired
+        private StudentRepository studentRepository;
+
+        @GetMapping("/return_List<Student>")
+        public List<Student> getAllStudent1(){
+            List<Student> students = studentRepository.findAll();
+            return students;
+        }
+
+        @GetMapping("return_ResponseEntity<?>")
+        public ResponseEntity<?> getAllStudent2() throws JsonProcessingException {
+            List<Student> students = studentRepository.findAll();
+
+            //create ObjectMapper the use .addMixin()
+            ObjectMapper mapper = new ObjectMapper();
+            //.addMixin(Class <?> target , Class<?> mixinSource) -> output : ObjectMapper
+            //invoke Student & StudentIgnoreMixin class
+            mapper.addMixIn(Student.class, StudentIgnoreMixin.class);
+
+            //.writeValueAsString(Object value) -> output : String
+            //invoke students from above
+            String jsonString = mapper.writeValueAsString(students);
+            //underline will appear on writeValueAsString,
+            //just throw exception and throw JsonProcessingException will be added on this method
+
+            //.ok(T body) -> output : ResponseEntity<T>
+            //.contentType(MediaType mediaType) -> output : BodyBuilder
+            //.body(T t) -> output : ResponseEntity<T>
+            //invoke the jsonString from above
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(jsonString);
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+Postman
+    GET     http://localhost:8080/return_ResponseEntity<>       SEND
+
+        [
+            {
+                "id": 1,
+                "name": "Pratik",
+                "username": "PK"
+            }
+        ]
+
+    GET     http://localhost:8080/return_List<Student>          SEND
+
+        [
+            {
+                "id": 1,
+                "name": "Pratik",
+                "username": "PK",
+                "password": "pass",
+                "address": {
+                    "id": 1,
+                    "city": "pune"
+                },
+                "hobbies": [
+                    {
+                        "id": 1,
+                        "hobby": "Singing"
+                    },
+                    {
+                        "id": 2,
+                        "hobby": "Coding"
+                    },
+                    {
+                        "id": 3,
+                        "hobby": "Traveling"
+                    }
+                ]
+            }
+        ]
+
+
+    POST        http://localhost:8080/          SEND
+
+    {
+      "username":"PK2",
+      "password":"pass2",
+      "name": "Pratik2",
+      "class": "Masters2",
+      "address": {
+        "city": "pune2"
+      },
+      "hobbies": [
+          {
+            "hobby": "Singing2"
+          },
+          {
+            "hobby": "Coding2"
+          },
+          {
+            "hobby": "Traveling2"
+          }
+      ]
+    }
+
+
+
+    GET     http://localhost:8080/return_ResponseEntity<>           SEND
+
+    [
+        {
+            "id": 1,
+            "name": "Pratik",
+            "username": "PK"
+        },
+        {
+            "id": 2,
+            "name": "Pratik2",
+            "username": "PK2"
+        }
+    ]
+
+    GET     http://localhost:8080/return_List<Student>           SEND
+
+    [
+        {
+            "id": 1,
+            "name": "Pratik",
+            "username": "PK",
+            "password": "pass",
+            "address": {
+                "id": 1,
+                "city": "pune"
+            },
+            "hobbies": [
+                {
+                    "id": 1,
+                    "hobby": "Singing"
+                },
+                {
+                    "id": 2,
+                    "hobby": "Coding"
+                },
+                {
+                    "id": 3,
+                    "hobby": "Traveling"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "Pratik2",
+            "username": "PK2",
+            "password": "pass2",
+            "address": {
+                "id": 2,
+                "city": "pune2"
+            },
+            "hobbies": [
+                {
+                    "id": 4,
+                    "hobby": "Singing2"
+                },
+                {
+                    "id": 5,
+                    "hobby": "Coding2"
+                },
+                {
+                    "id": 6,
+                    "hobby": "Traveling2"
+                }
+            ]
+        }
+    ]
