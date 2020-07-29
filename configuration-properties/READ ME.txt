@@ -1,0 +1,302 @@
+    reference: https://www.callicoder.com/spring-boot-configuration-properties-example/
+
+--------------------------------------------------------------------------------------------------------------
+
+External configurations allow you to work with the same code in different environments.
+    They also provide you the flexibility to tune your application from a single place.
+
+    In this article, you’ll learn how to define and use external configurations in
+    Spring Boot with a very simple annotation based API called @ConfigurationProperties.
+
+    @ConfigurationProperties bind external configurations to a strongly typed bean in your application code.
+    You can inject and use this bean throughout your application code just like any other spring bean.
+
+    Let the exploring begin!
+--------------------------------------------------------------------------------------------------------------
+
+Let’s create a sample application to learn how to define and use external configurations in spring boot.
+    1.	Go to http://start.spring.io
+    2.	Enter config-properties-demo in the Artifact field.
+    3.	Add Web in the dependencies section.
+    4.	Click Generate Project to download the project.
+
+--------------------------------------------------------------------------------------------------------------
+
+Defining Properties
+    Spring Boot application loads configuration properties from
+    application.properties file located in the classpath by default.
+
+    Open src/main/resources/application.properties file and add the following properties to it -
+
+    ## Top level app properties
+    app.name=ConfigurationPropertiesDemoApp
+    app.description=${app.name} is a spring boot app that demonstrates how to use external configuration properties
+    app.upload-dir=/uploads
+
+    app.connect-timeout=500ms
+    app.read-timeout=10s
+
+    ## Nested Object Properties (security)
+    app.security.username=callicoder
+    app.security.password=123456
+    app.security.roles=USER,ADMIN,PARTNER   # List Property
+    app.security.enabled=true
+
+
+    ## Map Properties (permissions)
+    app.security.permissions.CAN_VIEW_POSTS=true
+    app.security.permissions.CAN_EDIT_POSTS=true
+    app.security.permissions.CAN_DELETE_POSTS=false
+    app.security.permissions.CAN_VIEW_USERS=true
+    app.security.permissions.CAN_EDIT_USERS=true
+    app.security.permissions.CAN_DELETE_USERS=false
+
+    spring.profiles.active=staging
+    #spring.profiles.active=dev
+    #spring.profiles.active=prod
+
+--------------------------------------------------------------------------------------------------------------
+
+Binding external properties to a POJO class using @ConfigurationProperties
+    Let’s now see how we can bind the properties defined in the application.properties
+    file to a POJO class using @ConfigurationProperties.
+
+    The @ConfigurationProperties annotation takes a prefix parameter,
+    and binds all the properties with the specified prefix to the POJO class -
+
+    @Validated
+    @ConfigurationProperties(prefix = "app")
+    public class AppProperties {
+
+        private String name;
+        private String description;
+        private String uploadsDir;
+        private Duration connectTimeout = Duration.ofMillis(1000);
+        @DurationUnit(ChronoUnit.SECONDS)
+        private Duration readTimeout = Duration.ofSeconds(30);
+
+        private final Security security = new Security();
+
+        // Getters and Setters (Omitted for brevity)
+
+
+        public static  class Security{
+            private String username;
+            private String password;
+
+            private List<String> roles = new ArrayList<>();
+            private boolean enabled;
+            private Map<String, String> permissions = new HashMap<>();
+
+            // Getters and Setters (Omitted for brevity)
+
+        }
+    }
+
+--------------------------------------------------------------------------------------------------------------
+
+Let’s understand a few details about the binding:
+    •	Type-safe binding (List and Map)
+        Notice how the comma separated roles in the properties file are
+        bound to a List of roles and the permissions are bound to a Map.
+    •	Duration Support
+        Also, note how the duration properties are safely bound to the Duration types.
+        This is so awesome.
+        Spring Boot allows you to specify durations with the following units in the application.properties files -
+            o	ns for nanoseconds
+            o	us for microseconds
+            o	ms for milliseconds
+            o	s for seconds
+            o	m for minutes
+            o	h for hours
+            o	d for days
+        The default unit is milliseconds.
+        So if you don’t specify any unit in the properties file, It will be considered as milliseconds.
+        Note that, you can also override the unit using @DurationUnit annotation as we have done in the above POJO class.
+    •	Naming Convention
+        All the kebab case property names (ex: upload-dir) are bound to the
+        corresponding camel case fields (ex: uploadDir) in the POJO class.
+        Note that the properties can also be specified in camel case.
+        But using kebab case is recommended.
+
+--------------------------------------------------------------------------------------------------------------
+
+Enabling Configuration Properties
+    You need to explicitly register the properties classes using the
+    @EnableConfigurationProperties annotation as shown in the following example.
+
+    @EnableConfigurationProperties(AppProperties.class)
+    @SpringBootApplication
+    public class ConfigurationPropertiesApplication {
+
+    	public static void main(String[] args) {
+    		SpringApplication.run(ConfigurationPropertiesApplication.class, args);
+    	}
+
+    }
+
+    Alternatively, you could also add a @Component annotation to
+    the AppProperties class and the binding would still work.
+
+---------------------------------------------------------------------------------------------------------------
+
+Injecting Configuration Properties in your Spring Beans
+    The @ConfigurationProperties classes are regular spring beans,
+    and you can inject them in the same way as any other bean.
+
+    In the following example, I’ve written a sample API that retrieves app
+    details from configuration properties and returns them to the client -
+
+    @RestController
+    public class IndexControlller {
+        @Autowired
+        private AppProperties appProperties;
+
+        @GetMapping("/")
+        public Map<String, String> getAppDetails(){
+            Map<String, String> appDetails = new HashMap<>();
+            appDetails.put("name",appProperties.getName());
+            appDetails.put("description", appProperties.getDescription());
+            return appDetails;
+        }
+    }
+---------------------------------------------------------------------------------------------------------------
+
+@ConfigurationProperties Validation
+    You can validate configuration properties using javax.validation constraints like @NotNull, @NotEmpty etc.
+    To enable validation, you just need to add Spring’s @Validated annotation to the @ConfigurationProperties class -
+
+        @Validated
+        @ConfigurationProperties(prefix = "app")
+        public class AppProperties {
+            @NotNull
+            private String name;
+            private String description;
+            private String uploadsDir;
+            private Duration connectTimeout = Duration.ofMillis(1000);
+            @DurationUnit(ChronoUnit.SECONDS)
+            private Duration readTimeout = Duration.ofSeconds(30);
+            @Valid
+            private final Security security = new Security();
+
+            // Getters and Setters (Omitted for brevity)
+
+
+            public static  class Security{
+                private String username;
+                private String password;
+                @NotEmpty
+                private List<String> roles = new ArrayList<>();
+                private boolean enabled;
+                private Map<String, String> permissions = new HashMap<>();
+
+                // Getters and Setters (Omitted for brevity)
+
+            }
+        }
+
+    Now, The Spring Boot application will throw a validation exception on startup,
+    if the name property is null or the security.roles property is empty.
+
+---------------------------------------------------------------------------------------------------------------
+
+Environment based (Profile specific) Configuration Properties
+    In addition to the standard application.properties file,
+    Spring Boot also allows you to define profile-specific properties with the following naming convention -
+
+        application-{profile}.properties
+
+    The profile specific property files are loaded from the same location as the application.properties file,
+    with profile-specific properties always overriding the default ones.
+
+    To illustrate this, Let’s define some profile-specific property files,
+    and override some of the default properties -
+
+        •	application-dev.properties
+
+            ## Override properties for dev environment
+            app.name=ConfigurationPropertiesDemoApp-DEVELOPMENT
+
+            app.security.username=callicoder-dev
+
+        •	application-staging.properties
+
+            ## Override properties for staging environment
+            app.name=ConfigurationPropertiesDemoApp-STAGING
+
+            app.security.username=callicoder-staging
+            app.security.password=C@ll1C0d3r
+
+        •	application-prod.properties
+
+            ## Override properties for prod environment
+            app.name=ConfigurationPropertiesDemoApp-PRODUCTION
+
+            app.security.username=callicoder-prod
+            app.security.password=C@ll1C0d3r
+
+    Now, we need to activate a spring profile so that the corresponding properties file is loaded by spring boot.
+
+---------------------------------------------------------------------------------------------------------------
+
+Activating a Spring Profile
+    You can set active profiles in many ways -
+
+        1.	Using application properties
+
+        The default application.properties file is always loaded by Spring Boot.
+        You can set active profiles in the application.properties file by adding the following property -
+
+            spring.profiles.active=staging
+            #spring.profiles.active=dev
+            #spring.profiles.active=prod
+
+        2.	Using command line argument
+
+        You can set active profiles on startup by providing the spring.profiles.active command line argument like this -
+
+        # Packaging the app
+        mvn clean package -Dspring.profiles.active=staging
+
+            -> click Edit Configuration (left side of Run button)
+            -> click + icon
+            -> select Maven
+            -> type on command line: clean package -Dspring.profiles.active=staging
+
+        # Running the packaged jar with `spring.profiles.active` argument
+
+            java -jar -Dspring.profiles.active=staging target/config-properties-demo-0.0.1-SNAPSHOT.jar
+
+        Moreover, Here is how you can set active profiles while running the application with spring-boot:run command -
+
+            mvn spring-boot:run -Dspring.profiles.active=dev
+
+
+---------------------------------------------------------------------------------------------------------------
+
+Postman:
+
+    spring.profiles.active=prod
+
+    GET     http://localhost:8080/              SEND
+
+    {
+        "name": "ConfigurationPropertiesDemoApp-PRODUCTION",
+        "description": "ConfigurationPropertiesDemoApp-PRODUCTION is a spring boot app that demonstrates how to use external configuration properties"
+    }
+
+    spring.profiles.active=dev
+
+    {
+        "name": "ConfigurationPropertiesDemoApp-DEVELOPMENT",
+        "description": "ConfigurationPropertiesDemoApp-DEVELOPMENT is a spring boot app that demonstrates how to use external configuration properties"
+    }
+
+    spring.profiles.active=staging
+
+    {
+        "name": "ConfigurationPropertiesDemoApp-STAGING",
+        "description": "ConfigurationPropertiesDemoApp-STAGING is a spring boot app that demonstrates how to use external configuration properties"
+    }
+
+---------------------------------------------------------------------------------------------------------------
