@@ -1,0 +1,317 @@
+reference : https://www.netsurfingzone.com/jpa/jpa-cascade-types-example-using-spring-boot/
+
+------------------------------------------------------------------------------------------------------------------------
+
+JPA and Hibernate Cascade Types example with Spring Boot
+    Basic points about JPA Cascade Types.
+    The CascadeType defines the set of cascadable operations for the related entity.
+
+    Hibernate JPA Cascade Types used with association mapping.
+    For example, @OneToOne, OneToMany, @ManyToOne and @ManyToMany annotations have an attribute cascade.
+
+    The cascade is an optional element defined in @OneToOne, OneToMany, @ManyToOne and @ManyToMany annotations.
+
+    If we don’t provide any cascade type then no operations(Persist, Merge etc) would be in effect.
+
+    The main purpose of using JPA Cascade Types is we can perform save or delete( or other operation)
+    for Parent/Owner entity child/related entity will also be saved or deleted.
+
+------------------------------------------------------------------------------------------------------------------------
+
+In JPA below Cascade Types has been defined.
+
+    CascadeType.PERSIST  – It means if the parent entity is saved then the related entity will also be saved.
+    CascadeType.MERGE  – It means if the parent entity is merged then the related entity will also be merged.
+    CascadeType.REMOVE  – It means if the parent entity is deleted then the related entity will also be deleted.
+    CascadeType.DETACH  – It means if the parent entity is detached then the related entity will also be detached.
+    CascadeType.REFRESH  – It means if the parent entity is refreshed then the related entity will also be refreshed.
+    CascadeType.ALL  – It is equivalent to cascade={DETACH, MERGE, PERSIST, REFRESH, REMOVE}.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Understanding JPA CascadeType.PERSIST with example.
+    Let’s see about CascadeType.PERSIST.
+    What does it do? what will happen if we don’t use CascadeType.PERSIST?
+    Consider we have two entity Book.java, Story.java. Assume one book can have multiple stories.
+
+    Book.java(Parent entity has OneToMany association with Story)
+
+        @Entity
+        public class Book {
+            @Id
+            @GeneratedValue(strategy = GenerationType.AUTO)
+            private int bookId;
+            @Column(name = "book_name")
+            private String bookName;
+            @OneToMany(
+                cascade = {
+                //if no CascadeType.PERSIST - cant perform post method
+                    CascadeType.PERSIST,
+                //if no CascadeType.MERGE - only the parent will be updated
+                        CascadeType.MERGE,
+                //if no CascadeType.REMOVE - only the parent will be removed
+                    CascadeType.REMOVE,
+                },
+                    fetch = FetchType.LAZY)
+            @JoinColumn(name = "book_id", referencedColumnName = "bookId")
+            private List<Story> storyList = new ArrayList<>();
+
+            public int getBookId() {
+                return bookId;
+            }
+
+            public void setBookId(int bookId) {
+                this.bookId = bookId;
+            }
+
+            public String getBookName() {
+                return bookName;
+            }
+
+            public void setBookName(String bookName) {
+                this.bookName = bookName;
+            }
+
+            public List<Story> getStoryList() {
+                return storyList;
+            }
+
+            public void setStoryList(List<Story> storyList) {
+                this.storyList = storyList;
+            }
+
+            @Override
+            public String toString() {
+                return "Book{" +
+                        "bookId=" + bookId +
+                        ", bookName='" + bookName + '\'' +
+                        ", storyList=" + storyList +
+                        '}';
+            }
+        }
+
+    Story.java(child entity)
+
+        @Entity
+        public class Story {
+            @Id
+            @GeneratedValue(strategy = GenerationType.AUTO)
+            private int storyId;
+            @Column(name = "story_name")
+            private String storyName;
+
+
+
+            public int getStoryId() {
+                return storyId;
+            }
+
+            public void setStoryId(int storyId) {
+                this.storyId = storyId;
+            }
+
+            public String getStoryName() {
+                return storyName;
+            }
+
+            public void setStoryName(String storyName) {
+                this.storyName = storyName;
+            }
+
+            @Override
+            public String toString() {
+                return "Story{" +
+                        "storyId=" + storyId +
+                        ", storyName='" + storyName + '\'' +
+                        '}';
+            }
+        }
+
+------------------------------------------------------------------------------------------------------------------------
+
+We have below request data that we want to persist.
+
+    Postman: Body -> raw -> JSON
+
+    {
+        "bookName":"Prencahnd's best stories",
+        "storyList":[
+            {
+                "storyName":"story 1"
+            },{
+                "storyName":"story 2"
+            }
+
+        ]
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+We have BookServiceImpl.java as below.
+
+    @Component
+    public interface BookService {
+        public Book saveBook(Book book);
+        public Book findByBookId(int bookId);
+        public Book deleteBook(Book book);
+    }
+
+    @Service("bookServiceImpl")
+    public class BookServiceImpl implements BookService{
+
+        @Autowired
+        private BookRepository bookRepository;
+        @Autowired
+        private StoryRepository storyRepository;
+        @PersistenceContext
+        private EntityManager entityManager;
+
+        @Override
+        public Book saveBook(Book book) {
+            book = bookRepository.save(book);
+            return book;
+        }
+
+        @Override
+        public Book findByBookId(int bookId) {
+            Optional<Book> bookResponse = bookRepository.findById(bookId);
+            Book book = bookResponse.get();
+            return book;
+        }
+
+        @Override
+        public Book deleteBook(Book book) {
+            bookRepository.delete(book);
+            return book;
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+If we don’t define cascade = CascadeType.PERSIST for OneToMany association(or any another association type)
+    then we will not able to persist Story entity along with Book entity. An exception will be thrown.
+
+    In this case, we need to save Story entity separately, which we might don’t want. JPA C
+
+    Without cascade type.
+
+        @OneToMany( fetch = FetchType.LAZY)
+        @JoinColumn(name = "book_id", referencedColumnName = "bookId")
+        private List<Story> storyList = new ArrayList<>();
+
+    If we will try to save Story entities along with the Book entities we will get
+
+    “org.hibernate.TransientObjectException: object references an unsaved transient instance” exception.
+
+    With cascade type.
+
+    we can save Story entities along with the Book entities.
+
+        @OneToMany(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+        @JoinColumn(name = "book_id", referencedColumnName = "bookId")
+        private List<Story> storyList = new ArrayList<>();
+
+    Hope it is clear why we do use cascade = CascadeType.PERSIST.
+
+    The query generated in the above case(persisting Book as well Story).
+
+------------------------------------------------------------------------------------------------------------------------
+
+Understanding JPA CascadeType.MERGE with example.
+    Now we will see about CascadeType.MERGE.
+    What will happen if we don’t use CascadeType.MERGE with OneToMany annotation?
+
+    If we don’t use CascadeType.Merge then we will not able to update child entity along with the parent.
+    For example, we have only CascadeType.PERSIST in OneToMany annotation.
+
+        @OneToMany(cascade = { CascadeType.PERSIST }, fetch = FetchType.LAZY)
+        @JoinColumn(name = "book_id", referencedColumnName = "bookId")
+        private List<Story> storyList = new ArrayList<>();
+
+    We will able to persist both entities at a time but will not able to update the child entity along with the parent.
+
+    But if we use CascadeType.MERGE with OneToMany annotation then we will able to update child entity as well.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Understanding JPA CascadeType.REMOVE with example.
+    Let’s see about CascadeType.REMOVE.
+    What will happen if we don’t use CascadeType.REMOVE with OneToMany annotation?
+
+    If we don’t use CascadeType.REMOVE then we will not able to delete child entity along with the parent.
+    For example, we have only CascadeType.PERSIST in OneToMany annotation.
+
+        @OneToMany(cascade = { CascadeType.PERSIST }, fetch = FetchType.LAZY)
+        @JoinColumn(name = "book_id", referencedColumnName = "bookId")
+        private List<Story> storyList = new ArrayList<>();
+
+    We will able to persist both entities at a time but will not able to delete the child entity along with the parent.
+
+    We have response without any but both entities (Book and Story) has been deleted from Database?
+    The answer is the only Book will get deleted here not Story. Since we are not using CascadeType.REMOVE.
+
+    Let’s use CascadeType.REMOVE.
+
+        @OneToMany(cascade = { CascadeType.PERSIST, CascadeType.REMOVE }, fetch = FetchType.LAZY)
+        @JoinColumn(name = "book_id", referencedColumnName = "bookId")
+        private List<Story> storyList = new ArrayList<>();
+
+------------------------------------------------------------------------------------------------------------------------
+
+Postman:
+
+    GET     http://localhost:8080/book/saveBook
+
+    {
+        "bookName":"Prencahnd's best stories",
+        "storyList":[
+            {
+                "storyName":"story 1"
+            },{
+                "storyName":"story 2"
+            }
+
+        ]
+    }
+
+    GET     http://localhost:8080/book/1
+
+    GET     http://localhost:8080/book/update
+
+    {
+        "bookId":1,
+        "bookName":"Prencahnd's best stories_new",
+        "storyList":[
+            {
+                "storyId":2,
+                "storyName":"story 1_new"
+            },{
+                "storyId":3,
+                "storyName":"story 2_new"
+            }
+
+        ]
+    }
+
+    GET     http://localhost:8080/book/delete
+
+    {
+        "bookId": 1,
+        "bookName": "Prencahnd's best stories",
+        "storyList": [
+            {
+                "storyId": 2,
+                "storyName": "story 1"
+            },
+            {
+                "storyId": 3,
+                "storyName": "story 2"
+            }
+        ]
+    }
+
+
+
+
+------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
