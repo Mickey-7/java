@@ -1,0 +1,226 @@
+reference:  https://howtodoinjava.com/spring-boot2/pagination-sorting-example/
+
+------------------------------------------------------------------------------------------------------------
+
+dependencies: Spring Data JPA, Spring Web & H2 Database
+
+------------------------------------------------------------------------------------------------------------
+
+Spring boot pagination and sorting example
+    Last Updated On June 6, 2019
+
+    Learn to request and display only chunk of data from database using pagination
+    and sorting inputs and query parameters in spring boot and spring data applications.
+
+    Paging and sorting is mostly required when we are displaying domain data in tabular format in UI.
+
+    Pagination consist of two fields – page size and page number.
+    Sorting is done on a single of multiple fields in the table.
+
+------------------------------------------------------------------------------------------------------------
+
+1. JPA Entity
+    In this post, we are taking example of EmployeeEntity class.
+    Each entity instance represent an employee record in database.
+
+    @Entity
+    @Table(name="TBL_EMPLOYEES")
+    public class EmployeeEntity {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+
+        @Column(name="first_name")
+        private String firstName;
+
+        @Column(name="last_name")
+        private String lastName;
+
+        @Column(name="email", nullable=false, length=200)
+        private String email;
+
+        //Setters and getters
+
+        @Override
+        public String toString() {
+            return "EmployeeEntity [id=" + id + ", firstName=" + firstName +
+                    ", lastName=" + lastName + ", email=" + email   + "]";
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------
+
+2. PagingAndSortingRepository
+    PagingAndSortingRepository is an extension of CrudRepository to provide additional methods
+    to retrieve entities using the pagination and sorting abstraction. It provides two methods :
+
+    Page findAll(Pageable pageable)
+        – returns a Page of entities meeting the paging restriction provided in the Pageable object.
+    Iterable findAll(Sort sort)
+        – returns all entities sorted by the given options. No paging is applied here.
+
+        @Repository
+        public interface EmployeeRepository
+                extends PagingAndSortingRepository<EmployeeEntity, Long> {
+
+        }
+
+------------------------------------------------------------------------------------------------------------
+
+3. Accepting paging and sorting parameters
+    Generally, paging and sorting parameters are optional and thus part of request URL as query parameters.
+    If any API supports paging and sorting, ALWAYS provide default values to its parameters –
+    to be used when client does not choose specify any paging or sorting preferences.
+
+    The default paging and sorting values shall be clearly documented in API docs.
+    In UI, these default values can be highlighted with separate colors.
+
+    Page number values start with 0. So in UI, if you are displaying page number from 1,
+    then do not forget to subtracting ‘1’ while fetching records.
+
+    In below spring mvc controller, we are accepting paging and sorting
+    parameters using pageNo, pageSize and sortBy query parameters.
+
+    Also, by default '10' employees will be fetched from database in page
+    number '0', and employee records will be sorted based on 'id' field.
+
+        @RestController
+        @RequestMapping("/employees")
+        public class EmployeeController
+        {
+            @Autowired
+            EmployeeService service;
+
+            @GetMapping
+            public ResponseEntity<List<EmployeeEntity>> getAllEmployees(
+                                @RequestParam(defaultValue = "0") Integer pageNo,
+                                @RequestParam(defaultValue = "10") Integer pageSize,
+                                @RequestParam(defaultValue = "id") String sortBy)
+            {
+                List<EmployeeEntity> list = service.getAllEmployees(pageNo, pageSize, sortBy);
+
+                return new ResponseEntity<List<EmployeeEntity>>(list, new HttpHeaders(), HttpStatus.OK);
+            }
+        }
+
+    To perform pagination and/or sorting,
+    we must create org.springframework.data.domain.Pageable or
+    org.springframework.data.domain.Sort instances are pass to the findAll() method.
+
+        @Service
+        public class EmployeeService
+        {
+            @Autowired
+            EmployeeRepository repository;
+
+            public List<EmployeeEntity> getAllEmployees(Integer pageNo, Integer pageSize, String sortBy)
+            {
+                Pageable paging = PageRequest.of(pageNo, pageSize, Sort.by(sortBy));
+
+                Page<EmployeeEntity> pagedResult = repository.findAll(paging);
+
+                if(pagedResult.hasContent()) {
+                    return pagedResult.getContent();
+                } else {
+                    return new ArrayList<EmployeeEntity>();
+                }
+            }
+        }
+
+------------------------------------------------------------------------------------------------------------
+
+4. Pagination and sorting techniques
+
+    4.1. Paging WITHOUT sorting
+    To apply only pagination in result set, we shall create Pageable object without any Sort information.
+
+        Pageable paging = PageRequest.of(pageNo, pageSize);
+        Page<EmployeeEntity> pagedResult = repository.findAll(paging);
+
+    4.2. Paging WITH sorting
+    To apply only pagination in result set, we shall create Pageable object with desired Sort column name.
+
+        Pageable paging = PageRequest.of(pageNo, pageSize, Sort.by("email"));
+        Page<EmployeeEntity> pagedResult = repository.findAll(paging);
+
+    By default, records are ordered in DESCENDING order. To choose ASCENDING order, use .ascending() method.
+
+        Pageable paging = PageRequest.of(pageNo, pageSize, Sort.by("email").ascending());
+        Page<EmployeeEntity> pagedResult = repository.findAll(paging);
+
+    4.3. Sorting only
+    If there is no need to page, and only sorting is required, we can create Sort object for that.
+
+        Sort sortOrder = Sort.by("email");
+        List<EmployeeEntity> list = repository.findAll(sortOrder);
+
+    If we wish to apply sorting on multiple columns or group by sort,
+    then that is also possible by creating Sort using simple builder pattern steps.
+
+        Sort emailSort = Sort.by("email");
+        Sort firstNameSort = Sort.by("first_name");
+        Sort groupBySort = emailSort.and(firstNameSort);
+        List<EmployeeEntity> list = repository.findAll(groupBySort);
+
+------------------------------------------------------------------------------------------------------------
+
+5. Difference between Page and Slice
+    5.1. Page
+    The findAll(Pageable pageable) method by default returns a Page object.
+    A Page object provides lots of extra useful information other than just list of employees in current page.
+
+    E.g. A Page object has the number of total pages, number of the current page and well as whether current page is first page or last page.
+
+    Finding total pages invokes an additional count() query causing an extra overhead cost.
+    Be sure when you are using it.
+
+    5.2. Slice
+    Slice is very much similar to Page, except it does not provide the number of total pages in database.
+    It helps in improving performance when we do not need to display total number pages in UI.
+
+    Generally, Slice is used in case navigation is consist of Next page and Previous page links.
+
+    To use Slice, we have implement our own custom methods.
+
+    EmployeeRepository.java
+
+        public interface EmployeeRepository extends CrudRepository<EmployeeEntity, Long>
+        {
+            public Slice<EmployeeEntity> findByFirstName(String firstName, Pageable pageable);
+        }
+
+    Remember that is we use PagingAndSortingRepository, default return type is Page.
+
+        Pageable paging = PageRequest.of(pageNo, pageSize, Sort.by("email").descending());
+        Slice<EmployeeEntity> slicedResult = repository.findByFirstName("alex", paging);
+        List<EmployeeEntity> employeeList = slicedResult.getContent();
+
+-----------------------------------------------------------------------------------------------------------
+
+6. Spring boot paging and sorting demo
+    In this demo, default page number is 0, page size is 10 and default sort column is ‘id’.
+
+    Now invoke these URLs one by one and observe the outputs.
+
+        http://localhost:8080/employees?pageSize=5
+        http://localhost:8080/employees?pageSize=5&pageNo=1
+        http://localhost:8080/employees?pageSize=5&pageNo=2
+        http://localhost:8080/employees?pageSize=5&pageNo=1&sortBy=email
+        http://localhost:8080/employees?pageSize=5&pageNo=1&sortBy=firstName
+
+    Drop me your questions in comments related to how to paginate and so
+
+------------------------------------------------------------------------------------------------------------
+
+error encountered:
+    Exception in thread "task-2" org.springframework.jdbc.datasource.init.ScriptStatementFailedException:
+    Failed to execute SQL script statement #1 of URL [file:/C:/Users/donat/Downloads/paginating-sorting-h2-v2/paginating-sorting-h2-v2/target/classes/data.sql]:
+    INSERT INTO TBL_EMPLOYEES(id, first_name, last_name, email) VALUES('China', China, China@yahoo.com); nested exception is org.h2.jdbc.JdbcSQLSyntaxErrorException:
+    Syntax error in SQL statement "INSERT INTO TBL_EMPLOYEES(ID, FIRST_NAME, LAST_NAME, EMAIL) VALUES('China', CHINA, CHINA@[*]YAHOO.COM)";
+    expected "(, ., [, ::, AT, FORMAT, *, /, %, +, -, ||, ~, !~, NOT, LIKE, ILIKE, REGEXP, IS, IN, BETWEEN, AND, OR, ,, )"; SQL statement:
+
+    solution:
+
+    there is something wrong on the data.sql code
+
+------------------------------------------------------------------------------------------------------------
