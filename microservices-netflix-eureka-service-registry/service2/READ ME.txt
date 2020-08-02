@@ -1,0 +1,57 @@
+reference: https://www.websparrow.org/spring/spring-boot-microservices-netflix-eureka-service-registry-example
+
+2- Creating Service 1
+    Again create a simple Spring Boot stater project and give some name to your project,
+    select Spring Boot version from the dropdown list and select the Eureka Discovery,
+    Web and your required dependency from the dependency list.
+
+    Now open the application.properties file of the service-1 project and modify it by adding below code.
+
+    application.properties
+    # change the port of service-1
+    server.port=8085
+
+    # give some meaning name to your application
+    spring.application.name=service-2
+
+    Similarly, open the Spring Boot application (Service1Application.java) file of your project and
+    add @EnableDiscoveryClient annotation on the top of @SpringBootApplication annotation.
+    @EnableDiscoveryClient activates the Netflix Eureka DiscoveryClient implementation.
+
+    Service1Application.java
+    package org.websparrow.service1;
+
+    import org.springframework.boot.SpringApplication;
+    import org.springframework.boot.autoconfigure.SpringBootApplication;
+    import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+    @EnableDiscoveryClient
+    @SpringBootApplication
+    public class Service1Application {
+
+    	public static void main(String[] args) {
+    		SpringApplication.run(Service1Application.class, args);
+    	}
+
+    }
+
+    2.1- Service 2 Controller
+    Here is the very simple controller class of Service-2 microservice that display the greeting message.
+
+    Service2Controller.java
+    package org.websparrow.service1.controller;
+
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    @RestController
+    @RequestMapping("/service-2")
+    public class Service1Controller {
+
+    	@RequestMapping("/hello")
+    	public String hello() {
+
+    		return "Hello from Service 2";
+    	}
+
+    }

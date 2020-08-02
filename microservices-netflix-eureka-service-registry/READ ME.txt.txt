@@ -1,0 +1,20 @@
+reference: https://www.websparrow.org/spring/spring-boot-microservices-netflix-eureka-service-registry-example
+
+Building Spring Boot Microservices
+	In this Spring Boot microservice application, we will create three separate Spring Boot applications:
+
+	Eureka Service Registry: This application will enable the Eureka Server by adding annotation @EnableEurekaServer and register every microservice.
+
+	Service 1: This service will generate the simple greeting message from service 1 and will register with the Eureka service registry by adding the annotation @EnableDiscoveryClient.
+
+	Service 2: This service will also generate the simple greeting message from service 2 and will register with the Eureka service registry.
+
+
+Test the application
+	Now everything is all set, it’s time to test all applications. Follow the below steps to test your application.
+
+	1.Start your Eureka Service Registry application i.e Eureka Server first. 
+	  Once it loaded hit this http://localhost:8761/ in your web browser.
+	2.Now run your client application i.e. Service-1 and Service-1. 
+	  It will take a couple of minutes to register with the server.
+	3.Refresh the Eureka Server and you can see that both services have been registered.

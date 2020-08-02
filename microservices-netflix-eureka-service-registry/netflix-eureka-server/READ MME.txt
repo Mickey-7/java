@@ -1,0 +1,46 @@
+reference:  https://www.websparrow.org/spring/spring-boot-microservices-netflix-eureka-service-registry-example
+
+
+1- Creating Eureka Service Registry
+    Like most Spring Boot application.
+    create a simple Spring Boot stater project and give some name to your project,
+    select Spring Boot version from the dropdown list and select the Eureka Server from the dependency list.
+
+    When your project is ready, open the application.properties file and modify it by adding the below code.
+    By default, the registry will also attempt to register itself, so you’ll need to disable that, as well.
+
+    application.properties
+    # change the Eureka Server port
+    server.port=8761
+
+    # disable Eureka to register itself
+    eureka.client.register-with-eureka=false
+
+    Now open your Spring Boot application (EurekaServiceRegistryApplication.java) file and
+    add @EnableEurekaServer annotation on the top of @SpringBootApplication annotation.
+
+    @EnableEurekaServer enable the service registry so that other applications can talk to.
+    This is a regular Spring Boot application with one annotation added.
+
+    EurekaServiceRegistryApplication.java
+    package org.websparrow;
+
+    import org.springframework.boot.SpringApplication;
+    import org.springframework.boot.autoconfigure.SpringBootApplication;
+    import org.springframework.cloud.netflix.eureka.server.EnableEurekaServer;
+
+    @EnableEurekaServer
+    @SpringBootApplication
+    public class EurekaServiceRegistryApplication {
+
+    	public static void main(String[] args) {
+    		SpringApplication.run(EurekaServiceRegistryApplication.class, args);
+    	}
+
+    }
+
+    To start the Eureka Server,
+    run the project via Run As » Spring Boot App and hit this http://localhost:8761/  URL on your web browser.
+
+    You can see that there is no instance/service currently registered/running in Eureka Server.
+    Now jump to the creating service and register with Eureka Server section.
