@@ -1,0 +1,27 @@
+delete table customer if exists;
+--delete table customerOrder if exists;
+delete table customer_order if exists;
+
+
+create table customer (
+	id INT,
+	first_name VARCHAR(50),
+	last_name VARCHAR(50),
+	mobile VARCHAR(50),
+	country VARCHAR(50)
+);
+
+
+--create table customerOrder (
+--	name VARCHAR(50),
+--	description VARCHAR(50),
+--	orderStatus VARCHAR(50),
+--	customerId INT
+--);
+
+create table customer_order (
+	name VARCHAR(50),
+	description VARCHAR(50),
+	order_status VARCHAR(50),
+	customer_id INT
+);

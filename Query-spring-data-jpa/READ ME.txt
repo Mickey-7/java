@@ -1,0 +1,283 @@
+reference: https://www.websparrow.org/spring/spring-data-jpa-query-annotation-example
+
+------------------------------------------------------------------------------------------------------------------------
+
+Dependency Required
+    The required dependency is spring-boot-starter-data-jpa and others related to the project or application.
+
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+
+------------------------------------------------------------------------------------------------------------------------
+
+Entity
+    Create the entity class along with member variable. In my case Customer is an entity as given below:
+
+    @Entity
+    public class Customer {
+
+    	@Id
+    	@GeneratedValue(strategy = GenerationType.IDENTITY)
+    	private Integer id;
+    	private String firstName;
+    	private String lastName;
+    	private Long mobile;
+    	private String country;
+
+    	// Generate Getters and Setters...
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+1. JPQL
+    In this section, we’ll see some example of @Query annotation in which we are going to use JPQL to
+    fetch the records from the database. All these methods declared in the CustomerRepository interface.
+
+   @Repository
+   public interface CustomerRepository extends CrudRepository<Customer, Integer> {
+
+       //1.1 To fetch/retrieve the list of all customers:
+       @Query(value = "SELECT c FROM Customer c")
+       List<Customer> getCustomer();
+
+       //1.2 It returns the list of the first name of customers:
+       @Query(value = "SELECT c.firstName FROM Customer c")
+       List<String> getCustomerFirstName();
+
+       //1.3 It returns the list of the first name of customers whose country is the Philippines:
+       @Query(value = "SELECT c.firstName FROM Customer c WHERE c.country='Philippines'")
+       List<String> getCustomerFirstNameWhereCountry();
+
+       //1.4 It returns the list of customers whose country name passed by user:
+       @Query(value = "SELECT c FROM Customer c WHERE c.country= ?1")
+       List<Customer> getCustomerWhereCountry(String country);
+
+       //Alternatively, we can also use the @Param annotation to pass the country value:
+       @Query(value = "SELECT c FROM Customer c WHERE c.country= :country")
+       List<Customer> getCustomerWhereCountry1(@Param("country") String country);
+
+       //1.5 (OR clause) It returns the list of customers whose country or the last name passed by user:
+       @Query(value = "SELECT c FROM Customer c WHERE c.country= :country OR c.lastName= :lastName")
+       List<Customer> getCustomerWhereCountryOrLastName(
+               @Param("country") String country,
+               @Param("lastName") String lastName);
+
+       //Alternate way;
+       @Query(value = "SELECT c FROM Customer c WHERE c.country= ?1 OR c.lastName= ?2")
+       List<Customer> getCustomerWhereCountryOrLastName1(String country,
+                                                         String lastName);
+
+       //1.6 Bind directly to DTO–  Yes we can also bind the values directly to DTO returned by the JPQL query.
+       //For example, the entity (table) has 5 member variables (columns) and we have a requirement of only 2
+       //member variables (columns), in this case, create the new DTO and bind the result as shown below:
+       @Query(value = "SELECT new com.example.Queryspringdatajpa.dto.CustomerCustomData(c.id, c.country)"
+               + " FROM Customer c")
+       List<CustomerCustomData> getCustomerIdAndCountry();
+
+       //1.7 (JOINs)  In JPQL, we can fetch the data from two or more entities (tables).
+       //In shorts, JPQL supports the JOIN clause too.
+       //For example, we want only those customer’s records who ordered something.
+       @Query(value = "SELECT c FROM Customer c INNER JOIN CustomerOrder co ON c.id=co.customerId")
+       List<Customer> getCustomerWhoOrdered();
+
+       //1.8 (JOIN with WHERE clause) Similarly, we can also add the “WHERE” clause with “JOIN” in JPQL.
+       @Query(value = "SELECT c FROM Customer c INNER JOIN CustomerOrder co "
+               + " ON c.id=co.customerId WHERE co.orderStatus='Rejected'")
+       List<Customer> getCustomerWhoOrderedRejected();
+
+       //1.9 JPQL also support the UPDATE and DELETE in addition to retrieving objects (SELECT queries) with @Query annotation.
+       /**
+        * Update customer country where id is something(e.g 9)
+        */
+       @Transactional
+       @Modifying
+       @Query(value = "UPDATE Customer c SET c.country='Spain' WHERE c.id= 9")
+       int updateCustomerCountry();
+
+
+       /**
+        * Delete customer records whose id is something(e.g 6)
+        */
+       @Transactional
+       @Modifying
+       @Query(value = "DELETE FROM Customer c WHERE c.id= 6")
+       void deleteCustomer();
+
+       //1.1 To fetch/retrieve the list of all customers:
+       @Query(value = "SELECT * FROM customer", nativeQuery = true)
+       List<Customer> getCustomerNative();
+
+       //1.2 It returns the list of the first name of customers:
+       @Query(value = "SELECT c.first_name FROM customer c", nativeQuery = true)
+       List<String> getCustomerFirstNameNative();
+
+       //1.3 It returns the list of the first name of customers whose country is the USA:
+       @Query(value = "SELECT c.first_name FROM customer c WHERE c.country='USA'", nativeQuery = true)
+       List<String> getCustomerFirstNameWhereCountryNative();
+
+       //1.4 It returns the only 10 records of customers:
+       @Query(value = "SELECT * FROM customer c LIMIT 10", nativeQuery = true)
+       List<Customer> getCustomerWhereCountryNative();
+   }
+
+------------------------------------------------------------------------------------------------------------------------
+
+I manually created a controller to the the repositories:
+    @RestController
+    public class CustomerController {
+        @Autowired
+        private CustomerRepository customerRepository;
+
+        //http://localhost:8080/1
+        @GetMapping("/1")
+        public List<Customer> getCustomer(){
+            return customerRepository.getCustomer();
+        }
+
+        //http://localhost:8080/2
+        @GetMapping("/2")
+        public List<String> getCustomerFirstName(){
+            return customerRepository.getCustomerFirstName();
+        }
+
+        //http://localhost:8080/3
+        @GetMapping("/3")
+        public List<String> getCustomerFirstNameWhereCountry(){
+            return customerRepository.getCustomerFirstNameWhereCountry();
+        }
+
+        //http://localhost:8080/4?country=Poland
+        @GetMapping("/4")
+        public List<Customer> getCustomerWhereCountry(@RequestParam String country){
+            return customerRepository.getCustomerWhereCountry(country);
+        }
+
+        //http://localhost:8080/5?country=Poland&lastName=Axe
+        @GetMapping("/5")
+        public List<Customer> getCustomerWhereCountryOrLastName(@RequestParam String country,@RequestParam String lastName){
+            return customerRepository.getCustomerWhereCountryOrLastName(country, lastName);
+        }
+
+        //http://localhost:8080/6
+        @GetMapping("/6")
+        public List<CustomerCustomData> getCustomerIdAndCountry(){
+            return customerRepository.getCustomerIdAndCountry();
+        }
+
+        //http://localhost:8080/7
+        @GetMapping("/7")
+        public List<Customer> getCustomerWhoOrdered(){
+            return customerRepository.getCustomerWhoOrdered();
+        }
+
+        //http://localhost:8080/8
+        @GetMapping("/8")
+        public List<Customer> getCustomerWhoOrderedRejected(){
+            return customerRepository.getCustomerWhoOrderedRejected();
+        }
+
+        //http://localhost:8080/last
+        @GetMapping("/last")
+        public List<Customer> getCustomerWhereCountryNative(){
+            return customerRepository.getCustomerWhereCountryNative();
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+Run sql script on IntelliJ
+    -> open the script
+    -> click DB Connections
+    -> select Setup Connections
+    -> then setup the database connection
+    -> select the right Schema as the default will be mysql
+    -> many other icons will appear on same row
+    -> click the Execute Script (Run) button
+    -> go to the database table using DB Browser after successful execution
+    -> to check: right click Tables then select Reload
+    -> them commit the loaded data and check it the database using the cmd
+    -> if no commit was done, data will not be saved to the database table
+
+------------------------------------------------------------------------------------------------------------------------
+
+error encountered:
+    when executing sql script
+
+    DB Execution Console
+
+    Statement Execution Messages
+        data.sql(C:/Users/donat/Downloads/@Query-spring-data-jpa/Query-spring-data-jpa/src/main/resources/data.sql)
+            ! Error executing INSERT statement. Unknown column 'firstName' in 'field list' - Connection: customer: 19ms
+
+    solution:
+        open cmd and check the column/field name and also the name of the fucking table
+
+        mysql> describe customer;
+        +------------+--------------+------+-----+---------+----------------+
+        | Field      | Type         | Null | Key | Default | Extra          |
+        +------------+--------------+------+-----+---------+----------------+
+        | id         | int(11)      | NO   | PRI | NULL    | auto_increment |
+        | country    | varchar(255) | YES  |     | NULL    |                |
+        | first_name | varchar(255) | YES  |     | NULL    |                |
+        | last_name  | varchar(255) | YES  |     | NULL    |                |
+        | mobile     | varchar(255) | YES  |     | NULL    |                |
+        +------------+--------------+------+-----+---------+----------------+
+        5 rows in set (0.00 sec)
+
+        from
+        insert into customer (id ,firstName, lastName, mobile, country) values (1, 'Hydralazine Hydrochloride', 'Hydralazine Hydrochloride', '5184971085578473', 'Poland');
+        on data.sql
+        to
+        insert into customer (id ,first_name, last_name, mobile, country) values (1, 'Hydralazine Hydrochloride', 'Hydralazine Hydrochloride', '5184971085578473', 'Poland');
+
+
+        mysql> describe customer_order;
+        +--------------+--------------+------+-----+---------+----------------+
+        | Field        | Type         | Null | Key | Default | Extra          |
+        +--------------+--------------+------+-----+---------+----------------+
+        | id           | int(11)      | NO   | PRI | NULL    | auto_increment |
+        | customer_id  | int(11)      | YES  |     | NULL    |                |
+        | description  | varchar(255) | YES  |     | NULL    |                |
+        | name         | varchar(255) | YES  |     | NULL    |                |
+        | order_status | varchar(255) | YES  |     | NULL    |                |
+        +--------------+--------------+------+-----+---------+----------------+
+        5 rows in set (0.00 sec)
+
+        from
+        --create table customerOrder (
+        --	name VARCHAR(50),
+        --	description VARCHAR(50),
+        --	orderStatus VARCHAR(50),
+        --	customerId INT
+        --);
+        on schema.sql
+        to
+        create table customer_order (
+            name VARCHAR(50),
+            description VARCHAR(50),
+            orderStatus VARCHAR(50),
+            customerId INT
+        );
+
+------------------------------------------------------------------------------------------------------------------------
+
+NOTE: when dropping tables on database using cmd, make sure that the connection
+      on Intellij for the databases is disconnected for fast execution
+
+------------------------------------------------------------------------------------------------------------------------
+
+error encountered:
+    when executing sql script
+
+    DB Execution Console
+        Statement Execution Messages
+            data.sql(C:/Users/donat/Downloads/@Query-spring-data-jpa/Query-spring-data-jpa/src/main/resources/data.sql)
+                ! Error executing INSERT statement. Unknown column 'firstName' in 'field list' - Connection: customer: 19ms
+
+    solution:
+
+        -> select the right Schema after the database connection as the default will be mysql
+
+------------------------------------------------------------------------------------------------------------------------
