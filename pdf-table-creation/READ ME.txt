@@ -1,0 +1,101 @@
+reference : https://www.websparrow.org/java/itext-api-creating-table-in-pdf-using-java
+
+------------------------------------------------------------------------------------------------------------------------
+
+iText API– Creating table in PDF using Java
+    In this tutorial, we will discuss how to create a table in the PDF document using iText API.
+    iText is an open source and widely used for creating the PDF document in Java application/program.
+
+------------------------------------------------------------------------------------------------------------------------
+
+1- Download iText JAR
+    If you are Maven user, you can directly add the dependency in your pom.xml.
+
+    pom.xml
+    <dependency>
+        <groupId>com.itextpdf</groupId>
+        <artifactId>itextpdf</artifactId>
+        <version>5.5.10</version>
+    </dependency>
+
+    Note: This may throws the DocumentException in any problem occurs while creating the Document.
+          You need to handle it by using try and catch block or declare throws in method.
+
+------------------------------------------------------------------------------------------------------------------------
+
+2- Create Table in PDF
+    iText API example to show you how to create a table in PDF file, and write data into it.
+
+    try{
+    			// creation of the document with a certain size and certain margins
+    			Document document = new Document(PageSize.A4,20,20,20,20);
+
+    			// creating table and set the column width
+    			PdfPTable table = new PdfPTable(3);
+    			float widths[] = {3,6,3};
+    			table.setWidths(widths);
+    			table.setHeaderRows(1);
+
+    			// add cell of table - header cell
+    			PdfPCell cell = new PdfPCell(new Phrase("Emp Id"));
+    			cell.setBackgroundColor(new BaseColor(0,173,239));
+    			table.addCell(cell);
+
+    			cell = new PdfPCell(new Phrase("Emp Name"));
+    			cell.setBackgroundColor(new BaseColor(0, 173, 239));
+    			table.addCell(cell);
+
+    			cell = new PdfPCell(new Phrase("Salary"));
+    			cell.setBackgroundColor(new BaseColor(0, 173, 239));
+    			table.addCell(cell);
+
+    			Phrase ph;
+    			// looping the table cell for adding definition
+    			for (int ctr = 0; ctr <= 4; ctr++) {
+
+    				cell = new PdfPCell();
+    				ph = new Phrase("WS-"+ctr);
+    				cell.addElement(ph);
+    				table.addCell(cell);
+
+    				cell = new PdfPCell();
+    				ph = new Phrase("Sandeep Sharma " + ctr);
+    				cell.addElement(ph);
+    				table.addCell(cell);
+
+    				cell = new PdfPCell();
+    				ph = new Phrase("2000" + ctr);
+    				cell.addElement(ph);
+    				table.addCell(cell);
+
+    			}
+
+    			// write the all into a file and save it.
+    			PdfWriter.getInstance(document, new FileOutputStream("EmployeeData.pdf"));
+    			document.open();
+    			document.add(table);
+    			document.close();
+    			System.out.println("Successful.");
+    		} catch (DocumentException e) {
+    			e.printStackTrace();
+    		} catch (FileNotFoundException e) {
+    			e.printStackTrace();
+    		}
+
+------------------------------------------------------------------------------------------------------------------------
+
+Output:
+
+    If you see the Successful message in your console that means you have successfully created the PDF document.
+    To check it go to the file location and here is the result.
+
+    Emp Id Emp Name Salary
+    WS-0 Sandeep Sharma 0 20000
+    WS-1 Sandeep Sharma 1 20001
+    WS-2 Sandeep Sharma 2 20002
+    WS-3 Sandeep Sharma 3 20003
+    WS-4 Sandeep Sharma 4 20004
+
+    check the pdf file on this directory for the actual output
+
+------------------------------------------------------------------------------------------------------------------------
