@@ -1,0 +1,399 @@
+reference:      https://www.websparrow.org/spring/spring-boot-dynamic-datasource-routing-using-abstractroutingdatasource
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+dependencies : Spring Data JPA, Spring Web & MySQL Driver
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+Spring Boot Dynamic DataSource Routing using AbstractRoutingDataSource
+    This page will walk through Dynamic DataSource Routing using AbstractRoutingDataSource and Spring Data JPA in Spring Boot.
+
+    AbstractRoutingDataSource is an abstract implementation of DataSource that
+    routes call to one of the various target data source based on a lookup key.
+
+    AbstractRoutingDataSource introduced in Spring’s 2.0.1 version to provide a way
+    of dynamically determining the actual data source based on the current context.
+    It maintains the map of multiple data sources that get switched via changing context.
+
+    Sometimes we have a requirement to switch databases dynamically on the
+    basis of region or language and perform the operation based on the request.
+
+    Suppose, we have two branches i.e. Bangkok and Hongkong and one database for each branch.
+
+    We need to get details from the Bangkok database if the request comes from the Bangkok branch
+    and if the request comes from the Hongkong branch then from the Hongkong database.
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+What we’ll build
+    In this tutorial, we will expose a REST endpoint that connects with either hongkongdb or bangkokdb
+    and fetch the employee information from the table based on the request and return the JSON objects.
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+application.properties
+    Configure the database (data source) connections strings in the application.properties file for both data sources i.e. hongkongdb and bangkokdb.
+
+    #database details for bangkok branch
+    bangkok.datasource.url=jdbc:mysql://localhost:3307/bangkokdb?createDatabaseIfNotExist=true
+    bangkok.datasource.username=root
+    bangkok.datasource.password=PASSWORD
+
+    #database details for hongkong branch
+    hongkong.datasource.url=jdbc:mysql://localhost:3307/hongkongdb?createDatabaseIfNotExist=true
+    hongkong.datasource.username=root
+    hongkong.datasource.password=PASSWORD
+
+    # JPA property settings
+    spring.jpa.database=mysql
+    spring.jpa.hibernate.ddl-auto=update
+    spring.jpa.generate-ddl=true
+    spring.jpa.show-sql=true
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+Entity
+    First – let’s create a simple entity, which will be living in both of the databases.
+
+    @Entity
+    @Table(name = "employee")
+    public class Employee {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String name;
+        private String branch;
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getBranch() {
+            return branch;
+        }
+
+        public void setBranch(String branch) {
+            this.branch = branch;
+        }
+    }
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+DataSource Context
+    We have created a BranchEnum which holds the name of both branches.
+    AbstractRoutingDataSource needs a piece of information to which database to route to.
+
+    Here this enum will work as a context for AbstractRoutingDataSource class.
+
+    public enum BranchEnum {
+        BANGKOK, HONGKONG
+    }
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+Context Holder
+    BranchContextHolder will hold the current context of the branch as a ThreadLocal reference.
+    This class will provide thread-bound access to BranchEnum.
+
+    public class BranchContextHolder {
+
+        private static ThreadLocal<BranchEnum> threadLocal = new ThreadLocal<>();
+
+        public static void setBranchContext(BranchEnum branchEnum){
+            threadLocal.set(branchEnum);
+        }
+
+        public static BranchEnum getBranchContext(){
+            return threadLocal.get();
+        }
+
+        public static void clearBranchContext(){
+            threadLocal.remove();
+        }
+    }
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+DataSource Routing
+    DataSourceRouting extends the AbstractRoutingDatasource class, which will contain the map of real data sources.
+    Override its determineCurrentLookupKey() method to determine the current lookup key.
+
+    This will typically be implemented to check a thread-bound transaction context.
+
+    public class DataSourceRouting extends AbstractRoutingDataSource {
+        @Override
+        protected Object determineCurrentLookupKey() {
+            return BranchContextHolder.getBranchContext();
+        }
+
+        public void initDatasource(DataSource bangkokDatasource, DataSource hongkongDatasource){
+            Map<Object, Object> dataSourceMap = new HashMap<>();
+            dataSourceMap.put(BranchEnum.BANGKOK, bangkokDatasource);
+            dataSourceMap.put(BranchEnum.HONGKONG, hongkongDatasource);
+            this.setTargetDataSources(dataSourceMap);
+            this.setDefaultTargetDataSource(bangkokDatasource);
+        }
+    }
+
+    Data source map is set to targetDataSources and one data source is selected as a default data source.
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+DataSource Config Details
+    We will create two classes that will hold database connection properties for both the databases.
+
+    @Component
+    @ConfigurationProperties(prefix = "bangkok.datasource")
+    public class BangkokDetails {
+        private String url;
+        private String password;
+        private String username;
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+    }
+
+
+    @Component
+    @ConfigurationProperties(prefix = "hongkong.datasource")
+    public class HongkongDetails {
+        private String url;
+        private String password;
+        private String username;
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public void setUsername(String username) {
+            this.username = username;
+        }
+    }
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+DataSource Configuration
+    Now we will create data sources for both of our databases put them into a map and provide it to DataSourceRouting.
+
+    @Configuration
+    @EnableJpaRepositories(
+            //package of the repository
+            basePackages = "com.example.dynamicdatasourcerouting.repository",
+            transactionManagerRef = "transactionManager",
+            entityManagerFactoryRef = "entityManager")
+    @EnableTransactionManagement
+    public class DataSourceConfig {
+        @Autowired
+        private BangkokDetails bangkokDetails;
+        @Autowired
+        private HongkongDetails hongkongDetails;
+
+        public DataSource bangkokDataSource(){
+            DriverManagerDataSource dataSource = new DriverManagerDataSource();
+            dataSource.setUrl(bangkokDetails.getUrl());
+            dataSource.setUsername(bangkokDetails.getUsername());
+            dataSource.setPassword(bangkokDetails.getPassword());
+            return dataSource;
+
+        }
+        public DataSource hongkongDataSource(){
+            DriverManagerDataSource dataSource = new DriverManagerDataSource();
+            dataSource.setUrl(hongkongDetails.getUrl());
+            dataSource.setUsername(hongkongDetails.getUsername());
+            dataSource.setPassword(hongkongDetails.getPassword());
+            return dataSource;
+
+        }
+
+        @Bean
+        @Primary
+        @Autowired
+        public DataSource dataSource(){
+            DataSourceRouting routingDataSource = new DataSourceRouting();
+            routingDataSource.initDatasource(bangkokDataSource(), hongkongDataSource());
+            return routingDataSource;
+        }
+
+        @Bean(name = "entityManager")
+        public LocalContainerEntityManagerFactoryBean entityManagerFactoryBean(EntityManagerFactoryBuilder builder){
+            return builder.dataSource(dataSource()).packages(Employee.class).build();
+        }
+
+        @Bean(name = "transactionManager")
+        public JpaTransactionManager transactionManager(
+                @Autowired
+                @Qualifier("entityManager") LocalContainerEntityManagerFactoryBean entityManagerFactoryBean){
+            return new JpaTransactionManager(entityManagerFactoryBean.getObject());
+        }
+    }
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+DataSource Interceptor
+    DataSourceInterceptor intercepts every request and get branch information from request headers and put
+    it to context holder as we already created to BranchContextHolder via which we will switch data source.
+
+    @Component
+    public class DataSourceInterceptor extends HandlerInterceptorAdapter {
+        //alt+insert
+        @Override
+        public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+            String branch = request.getHeader("branch");
+            if (BranchEnum.BANGKOK.toString().equalsIgnoreCase(branch)){
+                BranchContextHolder.setBranchContext(BranchEnum.BANGKOK);
+            }else {
+                BranchContextHolder.setBranchContext(BranchEnum.HONGKONG);
+            }
+
+            return super.preHandle(request, response, handler);
+        }
+    }
+
+    Register this intercepter to WebMvcConfigurer.
+
+    @Configuration
+    public class WebConfig implements WebMvcConfigurer {
+        @Autowired
+        private DataSourceInterceptor dataSourceInterceptor;
+
+        //alt+insert
+        @Override
+        public void addInterceptors(InterceptorRegistry registry) {
+            registry.addInterceptor(dataSourceInterceptor).addPathPatterns("/**");
+            WebMvcConfigurer.super.addInterceptors(registry);
+
+        }
+    }
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+Repository & Service
+    @Repository
+    public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+
+    }
+
+    @Service
+    public class EmployeeService {
+        @Autowired
+        private EmployeeRepository employeeRepository;
+
+        public List<Employee> getEmployees() {
+            return employeeRepository.findAll();
+        }
+    }
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+Controller
+    EmployeeController class exposes the REST endpoint for the application user.
+    In this controller class, we have created a REST endpoint as follows:
+
+    http://localhost:8080/employee: will retrieve records of the employee from selected data-source.
+
+    @RestController
+    public class EmployeeController {
+        @Autowired
+        private EmployeeService employeeService;
+
+        @GetMapping("/employee")
+        public ResponseEntity<List<Employee>> getEmployees(){
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(employeeService.getEmployees());
+        }
+    }
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+error encountered:
+    upon creating database on cmd
+
+    mysql> create table employee(id bigint(20) auto_increment , branch varchar(255), name varchar(255));
+    ERROR 1075 (42000): Incorrect table definition; there can be only one auto column and it must be defined as a key
+
+    solution:
+
+    added last field on the script below for primary key:
+
+    mysql> create table employee(id bigint(20) auto_increment , branch varchar(255), name varchar(255), primary key (id));
+    Query OK, 0 rows affected, 1 warning (0.03 sec)
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+create schema.sql
+    create table employee(
+        id bigint(20) auto_increment ,
+        branch varchar(255),
+        name varchar(255),
+        primary key (id)
+    );
+
+    click DB Connections
+    click Setup Connections
+    select the bangkokdb schema then run
+    select the hongkongdb schema then run
+
+-------------------------------------------------------------------------------------------------------------------------------
+
+Postman:
+
+    GET     http://localhost:8080/employee  SEND
+
+    Headers
+    KEY         VALUE
+    branch      bangkokdb
+
+    then change the value to hongkongdb of the branch
+
+    Body response for both will be : [] , since we did not populate the table
+
+-------------------------------------------------------------------------------------------------------------------------------
