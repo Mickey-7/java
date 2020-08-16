@@ -1,0 +1,447 @@
+reference: https://www.websparrow.org/spring/spring-boot-forgot-password-example
+
+------------------------------------------------------------------------------------------------------------------------
+
+dependencies: Spring Data JPA, Spring Web & MySQL Driver
+
+------------------------------------------------------------------------------------------------------------------------
+Spring Boot Forgot Password Example
+    This guide will help you to create the Spring Boot REST API for forgot password.
+    The password recovery feature is very important when the application has multiple users.
+    It helps the user to recover/update the password when the user forgot it to access the application again.
+
+    Note: In this article, the password is stored in plain text for DEVELOPMENT and TESTING purposes only.
+    The password must be hashed in the PRODUCTION environment. You can use Spring Security Password Storage
+    for hashing the password.
+
+------------------------------------------------------------------------------------------------------------------------
+
+What we’ll build
+    In this tutorial, we’ll build Spring Boot RESTful service to recover/update the user password.
+    It brings the following features:
+
+    1. Validate user by email id.
+
+    Optional<User> userOptional = Optional
+            .ofNullable(userRepository.findByEmail(email));
+
+    if (!userOptional.isPresent()) {
+        return "Invalid email id.";
+    }
+
+    2. Generate unique token
+
+    private String generateToken() {
+        StringBuilder token = new StringBuilder();
+
+        return token.append(UUID.randomUUID().toString())
+                .append(UUID.randomUUID().toString()).toString();
+    }
+
+    3. Generate the password recovery URL
+
+    String response = userService.forgotPassword(email);
+
+    if (!response.startsWith("Invalid")) {
+        response = "http://localhost:8080/reset-password?token=" + response;
+    }
+
+    4. Validate the token
+
+    Optional<User> userOptional = Optional
+            .ofNullable(userRepository.findByToken(token));
+
+    if (!userOptional.isPresent()) {
+        return "Invalid token.";
+    }
+
+    if (isTokenExpired(tokenCreationDate)) {
+        return "Token expired.";
+    }
+
+    5. Update the new password
+
+    User user = userOptional.get();
+
+    user.setPassword(password);
+    user.setToken(null);
+    user.setTokenCreationDate(null);
+
+    userRepository.save(user);
+
+    return "Your password successfully updated.";
+
+------------------------------------------------------------------------------------------------------------------------
+
+NOTE: Make sure that the cursor is at the start of the file (on the first row & first column)
+      when executing data.sql so that the whole script will be executed then commit after
+
+------------------------------------------------------------------------------------------------------------------------
+
+MySQL Database Schema
+    Find the table structure and the insert script of the MySQL database used in this example.
+
+    schema.sql
+    delete user table if exists;
+
+    create table user(
+    	id bigint ,
+    	email varchar ,
+    	name varchar ,
+    	password varchar ,
+    	token varchar ,
+    	token_creation_date timestamp
+    );
+
+    data.sql
+    insert into user(id, email, name, password, token, token_creation_date) values(1,'atul@example.com','Atul Rai','abcd@123','76cdc01e-f5bb-49dd-ba55-9bcc0e8681c8868f0ce7-00ec-4766-9e6a-067238fc715b','2020-05-23 22:00:04');
+    insert into user(id, email, name, password, token, token_creation_date) values(2,'prince@example.com','Prince kumar','MyFavCountry@123',NULL,NULL);
+    insert into user(id, email, name, password, token, token_creation_date) values(3,'manish@xyz.com','Manish Fartiyal','manish123',NULL,NULL);
+
+------------------------------------------------------------------------------------------------------------------------
+
+application.properties
+    Configure data source, JPA properties, etc in the application.properties file.
+
+    spring.main.banner-mode=off
+
+    # MySQL database connection strings
+    spring.datasource.url=jdbc:mysql://localhost:3307/spring_dev
+    spring.datasource.username=root
+    spring.datasource.password=PASSWORD
+
+    # JPA property settings
+    spring.jpa.hibernate.ddl-auto=update
+    spring.jpa.properties.hibernate.show_sql=true
+
+------------------------------------------------------------------------------------------------------------------------
+
+User Entity
+    The User entity class will create the table in MySQL database as shown in the above script.
+    It will be used with the UserRepository interface later to perform the database operation using Spring Data JPA.
+
+    @Entity
+    public class User {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private Long id;
+        private String name;
+        @Column(unique = true)
+        private String email;
+        private String password;
+        private String token;
+        @Column(columnDefinition = "TIMESTAMP")
+        private LocalDateTime tokenCreationDate;
+
+        // Generate Getters and Setters...
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+User Repository
+    UserRepository interface extends the JpaRepository interface of the package org.springframework.data.jpa.repository.
+
+    @Repository
+    public interface UserRepository extends JpaRepository<User, Long> {
+        User findByEmail(String email);
+        User findByToken(String token);
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+User Service
+    The UserService class communicates with the database and validates the user information like email id, token & token expiry.
+    If all the validation successfully passed, it will update the new user password and respond accordingly.
+
+    @Service
+    public class UserService {
+        private static final long EXPIRE_TOKEN_AFTER_MINUTES = 30;
+
+        @Autowired
+        private UserRepository userRepository;
+
+        /**
+         * Generate unique token. You may add multiple parameters to create a strong
+         * token.
+         *
+         * @return unique token
+         */
+        private String generateToken(){
+            StringBuilder token = new StringBuilder();
+            return token.append(UUID.randomUUID().toString())
+                    .append(UUID.randomUUID().toString()).toString();
+        }
+
+        public String forgotPassword(String email){
+            Optional<User> userOptional = Optional.ofNullable(userRepository.findByEmail(email));
+
+            if (!userOptional.isPresent()){
+                return "Invalid email id";
+            }
+
+            User user = userOptional.get();
+            user.setToken(generateToken());
+            user.setTokenCreationDate(LocalDateTime.now());
+            user = userRepository.save(user);
+            return user.getToken();
+        }
+
+
+        /**
+         * Check whether the created token expired or not.
+         *
+         * @param tokenCreationDate
+         * @return true or false
+         */
+        private boolean isTokenExpired(final  LocalDateTime tokenCreationDate){
+            LocalDateTime now = LocalDateTime.now();
+            Duration diff = Duration.between(tokenCreationDate, now);
+            return diff.toMinutes() >= EXPIRE_TOKEN_AFTER_MINUTES;
+        }
+
+        public String resetPassword(String token, String password){
+            Optional<User> userOptional = Optional.ofNullable(userRepository.findByToken(token));
+            if (!userOptional.isPresent()){
+                return "Invalid token";
+            }
+
+            LocalDateTime tokenCreationDate = userOptional.get().getTokenCreationDate();
+            if (isTokenExpired(tokenCreationDate)){
+                return "Token expired";
+            }
+
+            User user = userOptional.get();
+            user.setPassword(password);
+            user.setToken(null);
+            user.setTokenCreationDate(null);
+            userRepository.save(user);
+
+            return "Your password successfully updated";
+
+        }
+
+        public List<User> getAll(){
+            return userRepository.findAll();
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+User Controller
+    UserController class handles the user request and responds accordingly.
+
+    @RestController
+    public class UserController {
+        @Autowired
+        private UserService userService;
+
+        @PutMapping("/reset-password")
+        public String resetPassword(@RequestParam String token, @RequestParam String password){
+            System.out.println(token);
+            System.out.println(password);
+            return userService.resetPassword(token,password);
+        }
+
+        @PostMapping("/forgot-password")
+        public String forgotPassword(@RequestParam String email){
+            System.out.println(email);
+            String response  = userService.forgotPassword(email);
+            if (!response.startsWith("Invalid")){
+                response = "http://localhost:8080/reset-password?token="+response;
+            }
+            System.out.println(email);
+            return response;
+        }
+
+        @GetMapping
+        public List<User> getAll(){
+            return userService.getAll();
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+Postman:    GET -> POST -> GET -> PUT -> GET
+
+    GET     http://localhost:8080
+
+    [
+        {
+            "id": 1,
+            "name": "Atul Rai",
+            "email": "atul@example.com",
+            "password": "abcd@123",
+            "token": "76cdc01e-f5bb-49dd-ba55-9bcc0e8681c8868f0ce7-00ec-4766-9e6a-067238fc715b",
+            "tokenCreationDate": "2020-05-24T06:00:04"
+        },
+        {
+            "id": 2,
+            "name": "Prince kumar",
+            "email": "prince@example.com",
+            "password": "MyFavCountry@123",
+            "token": null,
+            "tokenCreationDate": null
+        },
+        {
+            "id": 3,
+            "name": "Manish Fartiyal",
+            "email": "manish@xyz.com",
+            "password": "manish123",
+            "token": null,
+            "tokenCreationDate": null
+        }
+    ]
+
+    token for id: 2 & 3 are null
+
+------------------------------------------------------------------------------------------------------------------------
+
+forgot-password
+    POST    http://localhost:8080/forgot-password?email=atul@example.com    SEND
+
+    Body response:
+
+    http://localhost:8080/reset-password?token=f656775d-a34b-4818-a33d-1e54de0b4c0ed8c3fa82-d545-43a1-b867-074f6f9e7e3a
+
+    we received a new token
+
+------------------------------------------------------------------------------------------------------------------------
+
+reset-password
+    PUT     http://localhost:8080/reset-password?token=f656775d-a34b-4818-a33d-1e54de0b4c0ed8c3fa82-d545-43a1-b867-074f6f9e7e3a&password=FUCK       SEND
+
+    Body response:
+
+    Your password successfully updated
+
+    we set FUCK as password on th url using the new token we received
+
+------------------------------------------------------------------------------------------------------------------------
+
+check if updated:
+    GET     http://localhost:8080/      SEND
+
+    [
+        {
+            "id": 1,
+            "name": "Atul Rai",
+            "email": "atul@example.com",
+            "password": "FUCK",
+            "token": null,
+            "tokenCreationDate": null
+        },
+        {
+            "id": 2,
+            "name": "Prince kumar",
+            "email": "prince@example.com",
+            "password": "MyFavCountry@123",
+            "token": null,
+            "tokenCreationDate": null
+        },
+        {
+            "id": 3,
+            "name": "Manish Fartiyal",
+            "email": "manish@xyz.com",
+            "password": "manish123",
+            "token": null,
+            "tokenCreationDate": null
+        }
+    ]
+
+
+------------------------------------------------------------------------------------------------------------------------
+
+for id:2 - getting new token
+
+    POST    http://localhost:8080/forgot-password?email=prince@example.com
+
+    http://localhost:8080/reset-password?token=50d2d690-8256-4d44-8ff2-0cbf6e6bf695088214d0-167c-4d49-b7fe-ba1c7150703e
+
+
+    GET     http://localhost:8080/
+
+    [
+        {
+            "id": 1,
+            "name": "Atul Rai",
+            "email": "atul@example.com",
+            "password": "FUCK",
+            "token": null,
+            "tokenCreationDate": null
+        },
+        {
+            "id": 2,
+            "name": "Prince kumar",
+            "email": "prince@example.com",
+            "password": "MyFavCountry@123",
+            "token": "50d2d690-8256-4d44-8ff2-0cbf6e6bf695088214d0-167c-4d49-b7fe-ba1c7150703e",
+            "tokenCreationDate": "2020-08-02T20:39:37"
+        },
+        {
+            "id": 3,
+            "name": "Manish Fartiyal",
+            "email": "manish@xyz.com",
+            "password": "manish123",
+            "token": null,
+            "tokenCreationDate": null
+        }
+    ]
+
+------------------------------------------------------------------------------------------------------------------------
+
+trying to reset-password without token for id:2
+
+    PUT     http://localhost:8080/reset-password?token=null&password=FUCK
+
+    Invalid token
+
+    PUT     http://localhost:8080/reset-password?token=50d2d690-8256-4d44-8ff2-0cbf6e6bf695088214d0-167c-4d49-b7fe-ba1c7150703e&password=FUCKER
+
+    Your password successfully updated
+
+    GET     http://localhost:8080/
+
+
+    [
+        {
+            "id": 1,
+            "name": "Atul Rai",
+            "email": "atul@example.com",
+            "password": "FUCK",
+            "token": null,
+            "tokenCreationDate": null
+        },
+        {
+            "id": 2,
+            "name": "Prince kumar",
+            "email": "prince@example.com",
+            "password": "FUCKER",
+            "token": null,
+            "tokenCreationDate": null
+        },
+        {
+            "id": 3,
+            "name": "Manish Fartiyal",
+            "email": "manish@xyz.com",
+            "password": "manish123",
+            "token": null,
+            "tokenCreationDate": null
+        }
+    ]
+
+------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
