@@ -1,0 +1,83 @@
+reference:  https://www.websparrow.org/spring/how-to-get-user-details-in-spring-security
+
+------------------------------------------------------------------------------------------------------------------------
+
+How to get user details in Spring Security
+    This article will focus on how to retrieve the user details in Spring Security.
+    To get current logged-in user details like username and role Spring Security provide an Authentication interface.
+
+    It represents the token for an authentication request or for an authenticated principal once the request
+    has been processed by the authenticate(Authentication authentication) method of AuthenticationManager.
+
+------------------------------------------------------------------------------------------------------------------------
+
+Let’s jump to the actual part of coding.
+
+    1. Create some dummy users:
+
+    @Configuration
+    @EnableWebSecurity
+    public class SecurityConfig extends WebSecurityConfigurerAdapter {
+
+        @Bean
+        public PasswordEncoder passwordEncoder(){
+            return new BCryptPasswordEncoder();
+        }
+
+        //alt+insert
+        @Override
+        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+            auth.inMemoryAuthentication()
+                    .withUser("manish")
+                    .password(passwordEncoder().encode("pass"))
+                    .roles("ADMIN")
+                    .and()
+                    .withUser("sandeep")
+                    .password(passwordEncoder().encode("pass"))
+                    .roles("USER");
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
+2. Controller class to fetch logged-in user information:
+
+    @RestController
+    public class UserController {
+        @GetMapping("/user")
+        public String userInfo(Authentication authentication){
+            String userName = authentication.getName();
+            String role = authentication.getAuthorities().stream().findAny().get().getAuthority();
+
+            //2.1 User authority/role can retrieve by user Enhanced-For-Loop also:
+            for(GrantedAuthority authority : authentication.getAuthorities()){
+                 String auth = authentication.getAuthorities().toString();
+                System.out.println(auth);   //[ROLE_ADMIN]
+
+                 String principal = authentication.getPrincipal().toString();
+                System.out.println(principal);
+                //org.springframework.security.core.userdetails.User@bf8abce4:
+                // Username: manish; Password: [PROTECTED]; Enabled: true;
+                // AccountNonExpired: true; credentialsNonExpired: true;
+                // AccountNonLocked: true; Granted Authorities: ROLE_ADMIN
+
+                 String details = authentication.getDetails().toString();
+                System.out.println(details);
+                //org.springframework.security.web.authentication.WebAuthenticationDetails@ffff4c9c:
+                // RemoteIpAddress: 0:0:0:0:0:0:0:1; SessionId: 066108559441B44D8B6140628CB6BACA
+
+                System.out.println(authentication.getCredentials());
+            }
+
+            //Alternatively, we can also use the getPrincipal() method:
+            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            System.out.println("User has authorities: "+userDetails.getAuthorities());
+            //User has authorities: [ROLE_ADMIN]
+
+            return "Your username is : "+userName+ " and your role is : "+role;
+            //can be seen on web browser page
+        }
+    }
+
+------------------------------------------------------------------------------------------------------------------------
+
